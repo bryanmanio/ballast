@@ -33,20 +33,41 @@ final class ContainerStore {
     /// reality. A single failed poll is tolerated, since a brief SSH hiccup
     /// shouldn't blank the whole menu.
     private(set) var dataIsFresh = true
+    /// Exits, crash-restarts and starts seen across polls, oldest first.
+    private(set) var history: [DowntimeEvent]
+    private(set) var notificationAuthorization: NotificationAuthorization = .notDetermined
 
     /// How many consecutive failures we tolerate before declaring the data stale.
     private static let staleAfterFailures = 2
 
+    /// How long after a start/stop/restart from the menu an exit is taken to
+    /// be the user's doing rather than a crash. `docker stop` waits out its
+    /// grace period before killing, so the exit can land well after the click.
+    private static let userActionWindow: TimeInterval = 90
+
     private let settings: AppSettings
     private let makeSource: @MainActor (AppSettings) -> ContainerSource
     private let probe: any ServiceProbing
+    private let historyStore: any DowntimeHistoryStoring
+    private let notifier: any ExitNotifying
     /// False when driven by fixtures, which need no SSH destination.
     private let requiresSSHConfiguration: Bool
     private var pollTask: Task<Void, Never>?
+    /// The last successful poll, reduced to what transitions are detected
+    /// from. Deliberately untouched by a failed poll, so an outage can never
+    /// look like containers exiting.
+    private var previousSnapshot: [String: ContainerSnapshot] = [:]
+    /// Container names the user has just started, stopped or restarted.
+    private var recentActions: [String: Date] = [:]
 
+    /// The history and notifier defaults touch neither disk nor the
+    /// notification centre, so a store built without them (tests, previews)
+    /// can't write to the real log. The app passes the real ones.
     init(
         settings: AppSettings,
         probe: any ServiceProbing = ServiceProbe(),
+        historyStore: any DowntimeHistoryStoring = InMemoryDowntimeHistoryStore(),
+        notifier: any ExitNotifying = DisabledExitNotifier(),
         requiresSSHConfiguration: Bool = true,
         makeSource: @MainActor @escaping (AppSettings) -> ContainerSource = { settings in
             SSHContainerSource(destination: settings.sshDestination, agentPath: settings.agentPath)
@@ -54,6 +75,9 @@ final class ContainerStore {
     ) {
         self.settings = settings
         self.probe = probe
+        self.historyStore = historyStore
+        self.notifier = notifier
+        self.history = historyStore.load()
         self.requiresSSHConfiguration = requiresSSHConfiguration
         self.makeSource = makeSource
     }
@@ -78,6 +102,67 @@ final class ContainerStore {
 
     func unhide(_ name: String) {
         settings.hiddenContainers.remove(name)
+    }
+
+    // MARK: - History and notifications
+
+    /// Newest first.
+    func events(for name: String) -> [DowntimeEvent] {
+        history.filter { $0.containerName == name }.reversed()
+    }
+
+    /// The most recent time this container went down, for its tooltip.
+    func lastExit(for name: String) -> DowntimeEvent? {
+        history.last { $0.containerName == name && $0.kind != .started }
+    }
+
+    func clearHistory() {
+        historyStore.clear()
+        history = []
+    }
+
+    var mutedContainerNames: [String] {
+        settings.mutedContainers.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    func mute(_ container: Container) {
+        settings.mutedContainers.insert(container.name)
+    }
+
+    func unmute(_ name: String) {
+        settings.mutedContainers.remove(name)
+    }
+
+    /// Posts a sample notification so the user can see whether notifications
+    /// actually arrive, without waiting for something to break.
+    ///
+    /// Deliberately not recorded in history: nothing happened on the NAS.
+    /// Returns false when macOS refused permission.
+    func sendTestNotification() async -> Bool {
+        guard await requestNotificationAuthorization() else { return false }
+        await notifier.post([
+            DowntimeEvent(
+                containerName: "ballast-test",
+                kind: .exited,
+                at: Date(),
+                exitCode: 137,
+                image: "ballast/test:latest"
+            )
+        ])
+        return true
+    }
+
+    func refreshNotificationAuthorization() async {
+        notificationAuthorization = await notifier.authorizationStatus()
+    }
+
+    /// Asks macOS for permission. Only called when the user turns
+    /// notifications on, not at launch: a menu bar app with no window has no
+    /// context to explain a permission prompt.
+    func requestNotificationAuthorization() async -> Bool {
+        let granted = await notifier.requestAuthorization()
+        await refreshNotificationAuthorization()
+        return granted
     }
 
     /// Everything that should be up, as one flat list.
@@ -196,6 +281,7 @@ final class ContainerStore {
         do {
             let output = try await source.fetch()
             hostSelection = await selectionTask
+            let notifiable = recordTransitions(in: output.containers)
             containers = output.containers
             warnings = output.warnings
             dataIsFresh = true
@@ -205,6 +291,8 @@ final class ContainerStore {
 
             recomputeEndpoints()
             recomputeAssessments()
+
+            if !notifiable.isEmpty { await notifier.post(notifiable) }
 
             // Probing happens after the list is already on screen, so the
             // menu updates immediately and sharpens a moment later.
@@ -233,6 +321,10 @@ final class ContainerStore {
         actionError = nil
         defer { busy.remove(container.id) }
 
+        // Marked before as well as after: a poll already in flight can see
+        // the result of the action while it is still running.
+        recentActions[container.name] = Date()
+
         do {
             try await makeSource(settings).perform(action, on: container.id)
         } catch let error as BallastError {
@@ -241,6 +333,7 @@ final class ContainerStore {
             actionError = "\(action.verb) \(container.displayName) failed — \(error.localizedDescription)"
         }
 
+        recentActions[container.name] = Date()
         await refresh()
     }
 
@@ -261,6 +354,39 @@ final class ContainerStore {
     }
 
     // MARK: - Internals
+
+    /// Diffs the fetched list against the last one, records what changed, and
+    /// returns the events that should notify.
+    ///
+    /// Compared even when the data had gone stale: the snapshot only ever
+    /// comes from a successful poll, so it is still the last thing we really
+    /// knew. Skipping the comparison would lose exactly the exits that happen
+    /// while the Mac is asleep or the NAS is unreachable.
+    private func recordTransitions(in fetched: [Container]) -> [DowntimeEvent] {
+        defer { previousSnapshot = DowntimeDetector.snapshot(fetched) }
+
+        let now = Date()
+        recentActions = recentActions.filter { now.timeIntervalSince($0.value) < Self.userActionWindow }
+
+        let events = DowntimeDetector.events(
+            previous: previousSnapshot,
+            current: fetched,
+            suppressed: Set(recentActions.keys),
+            now: now
+        )
+        guard !events.isEmpty else { return [] }
+
+        historyStore.append(events)
+        history = historyStore.load()
+
+        guard settings.notifyOnUnexpectedExit else { return [] }
+        let optedOut = Set(fetched.filter(\.notifyOptOut).map(\.name))
+        return events.filter {
+            $0.isNotifiable
+                && !settings.mutedContainers.contains($0.containerName)
+                && !optedOut.contains($0.containerName)
+        }
+    }
 
     private func recomputeEndpoints() {
         let host = hostSelection?.host ?? settings.effectiveLANHost

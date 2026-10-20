@@ -30,6 +30,13 @@ final class AppSettings {
     var hiddenContainers: Set<String> {
         didSet { write(hiddenContainers.sorted(), .hiddenContainers) }
     }
+    /// Off by default: the first time it's turned on is when macOS gets asked
+    /// for permission, which should be a response to a choice, not a surprise.
+    var notifyOnUnexpectedExit: Bool { didSet { write(notifyOnUnexpectedExit, .notifyOnUnexpectedExit) } }
+    /// Containers whose exits never notify. Name-keyed, like `hiddenContainers`.
+    var mutedContainers: Set<String> {
+        didSet { write(mutedContainers.sorted(), .mutedContainers) }
+    }
 
     private let defaults: UserDefaults
 
@@ -51,6 +58,8 @@ final class AppSettings {
         sortOrder = ContainerSortOrder(rawValue: defaults.string(forKey: Key.sortOrder.rawValue) ?? "")
             ?? .status
         hiddenContainers = Set(defaults.stringArray(forKey: Key.hiddenContainers.rawValue) ?? [])
+        notifyOnUnexpectedExit = defaults.object(forKey: Key.notifyOnUnexpectedExit.rawValue) as? Bool ?? false
+        mutedContainers = Set(defaults.stringArray(forKey: Key.mutedContainers.rawValue) ?? [])
     }
 
     var isConfigured: Bool {
@@ -70,6 +79,7 @@ final class AppSettings {
         case sshDestination, lanHost, remoteHost, agentPath, reachabilityPort
         case refreshInterval, probeEnabled
         case hideProjectNames, sortOrder, hiddenContainers
+        case notifyOnUnexpectedExit, mutedContainers
     }
 
     private func write(_ value: Any, _ key: Key) {

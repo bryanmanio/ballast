@@ -49,6 +49,14 @@ struct StatusAssessment: Sendable, Hashable {
 
 enum StatusResolver {
 
+    /// Why a container that isn't running stopped. Shared with the downtime
+    /// history so a row and its history entry always say the same thing.
+    static func exitReason(exitCode: Int, oomKilled: Bool) -> String {
+        if oomKilled { return "Killed — out of memory" }
+        if exitCode == 0 { return "Stopped" }
+        return "Exited with code \(exitCode)"
+    }
+
     /// Merges the three independent facts — Docker's state, the image's
     /// healthcheck, and our own HTTP probe — into one displayed status.
     ///
@@ -94,13 +102,10 @@ enum StatusResolver {
             return StatusAssessment(status: .down, reason: "Dead")
 
         case .exited:
-            if container.oomKilled {
-                return StatusAssessment(status: .down, reason: "Killed — out of memory")
-            }
-            if container.exitCode == 0 {
-                return StatusAssessment(status: .down, reason: "Stopped")
-            }
-            return StatusAssessment(status: .down, reason: "Exited with code \(container.exitCode)")
+            return StatusAssessment(
+                status: .down,
+                reason: exitReason(exitCode: container.exitCode, oomKilled: container.oomKilled)
+            )
 
         case .unknown:
             return StatusAssessment(status: .unknown, reason: "Unrecognised state")
