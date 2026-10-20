@@ -420,3 +420,75 @@ struct IndirectPortTests {
         #expect(container(networkMode: "container:").networkOwnerID == nil)
     }
 }
+
+@Suite("Container version")
+struct ContainerVersionTests {
+
+    private func withImage(_ image: String, labels: [String: String] = [:]) -> Container {
+        Container(
+            id: "id", name: "svc", state: .running, health: .undefined, exitCode: 0,
+            oomKilled: false, restartCount: 0, image: image, publishedPorts: [],
+            exposedPorts: [], networkMode: "bridge", labels: labels,
+            startedAt: nil, finishedAt: nil
+        )
+    }
+
+    @Test("a version tag is used directly")
+    func usesVersionTag() {
+        #expect(withImage("jellyfin/jellyfin:10.9.11").version == "10.9.11")
+        #expect(withImage("qmcgaw/gluetun:v3.41.0").version == "v3.41.0")
+        #expect(withImage("redis:7").version == "7")
+    }
+
+    @Test("a registry port is not mistaken for a tag")
+    func registryPortIsNotATag() {
+        // The last colon belongs to the host here, not to a tag.
+        #expect(withImage("registry.local:5000/some/image").imageTag == nil)
+        #expect(withImage("registry.local:5000/some/image:2.1").imageTag == "2.1")
+    }
+
+    @Test("a digest pin yields no tag")
+    func digestPin() {
+        #expect(withImage("ghcr.io/app/img@sha256:abc123").imageTag == nil)
+    }
+
+    @Test("an image with no tag has no version")
+    func untagged() {
+        #expect(withImage("ghcr.io/app/img").version == nil)
+    }
+
+    @Test("a channel tag defers to the image's version label")
+    func channelTagPrefersLabel() {
+        // "latest" says nothing useful, but the image usually knows.
+        let c = withImage(
+            "ghcr.io/paperless-ngx/paperless-ngx:latest",
+            labels: ["org.opencontainers.image.version": "2.11.6"]
+        )
+        #expect(c.version == "2.11.6")
+    }
+
+    @Test("a real tag beats the label, since it is what was actually pulled")
+    func tagBeatsLabel() {
+        let c = withImage(
+            "jellyfin/jellyfin:10.9.11",
+            labels: ["org.opencontainers.image.version": "10.8.0"]
+        )
+        #expect(c.version == "10.9.11")
+    }
+
+    @Test("when both are channel names, the tag is still shown")
+    func fallsBackToChannelTag() {
+        // Better to show "latest" than nothing at all.
+        let c = withImage(
+            "ghcr.io/maintainerr/maintainerr:latest",
+            labels: ["org.opencontainers.image.version": "main"]
+        )
+        #expect(c.version == "latest")
+    }
+
+    @Test("channel detection ignores case")
+    func channelCaseInsensitive() {
+        let c = withImage("app:LATEST", labels: ["org.opencontainers.image.version": "3.2.1"])
+        #expect(c.version == "3.2.1")
+    }
+}

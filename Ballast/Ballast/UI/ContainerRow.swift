@@ -26,6 +26,17 @@ struct ContainerRow: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
+                    .layoutPriority(1)
+
+                // Revealed on hover, in the slack after the name, so no other
+                // element moves when it appears.
+                if isHovering, let version = container.version {
+                    Text(version)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
 
                 Spacer(minLength: 6)
 
@@ -44,6 +55,14 @@ struct ContainerRow: View {
                         } else {
                             RowAction(action: .start, container: container, perform: perform)
                         }
+
+                        if isOpenable {
+                            RowIconButton(
+                                symbol: "arrow.up.forward",
+                                help: "Open \(primary?.url.absoluteString ?? "")",
+                                action: open
+                            )
+                        }
                     }
                 } else if let port = primary?.hostPort {
                     // verbatim: a port is an identifier, so it must not be
@@ -51,15 +70,12 @@ struct ContainerRow: View {
                     Text(verbatim: String(port))
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundStyle(.secondary)
-                }
-
-                // Only present while hovering, rather than hidden with
-                // opacity: an always-laid-out icon would reserve a strip of
-                // empty space down the right edge of every row.
-                if isHovering && isOpenable {
-                    Image(systemName: "arrow.up.forward.square")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.secondary)
+                } else {
+                    // Says "there is no URL for this one" rather than leaving
+                    // a blank that reads as missing data.
+                    Text(verbatim: "N/A")
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(.tertiary)
                 }
             }
             .frame(height: 20)
@@ -79,6 +95,7 @@ struct ContainerRow: View {
 
     private var helpText: String {
         var lines = ["\(container.displayName) — \(assessment.reason)", container.image]
+        if let version = container.version { lines.append("Version \(version)") }
         if let url = primary?.url { lines.append(url.absoluteString) }
         if container.restartCount > 0 { lines.append("\(container.restartCount) restarts") }
         return lines.joined(separator: "\n")
@@ -124,20 +141,18 @@ struct ContainerRow: View {
 }
 
 
-/// One lifecycle button. Small, quiet, and only visible on hover, so it
-/// can't be hit by accident while scrolling the list.
-private struct RowAction: View {
-    let action: ContainerAction
-    let container: Container
-    let perform: (ContainerAction) -> Void
+/// One small round control in a row. Only visible on hover, so none of them
+/// can be hit by accident while scrolling the list.
+private struct RowIconButton: View {
+    let symbol: String
+    let help: String
+    let action: () -> Void
 
     @State private var isHovering = false
 
     var body: some View {
-        Button {
-            perform(action)
-        } label: {
-            Image(systemName: action.symbolName)
+        Button(action: action) {
+            Image(systemName: symbol)
                 .font(.system(size: 9, weight: .medium))
                 .frame(width: 18, height: 18)
                 .contentShape(.circle)
@@ -146,6 +161,21 @@ private struct RowAction: View {
         .foregroundStyle(isHovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
         .glassEffect(.regular.interactive(), in: .circle)
         .onHover { isHovering = $0 }
-        .help("\(action.verb) \(container.displayName)")
+        .help(help)
+    }
+}
+
+private struct RowAction: View {
+    let action: ContainerAction
+    let container: Container
+    let perform: (ContainerAction) -> Void
+
+    var body: some View {
+        RowIconButton(
+            symbol: action.symbolName,
+            help: "\(action.verb) \(container.displayName)"
+        ) {
+            perform(action)
+        }
     }
 }
