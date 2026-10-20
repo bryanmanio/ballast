@@ -40,7 +40,9 @@ struct SettingsView: View {
             .padding(.vertical, 12)
         }
         .frame(maxHeight: 460)
-        .scrollIndicators(.never)
+        // Unlike the container list, settings give no hint that there is more
+        // below the fold, so the scroller stays on to show how far down we are.
+        .scrollIndicators(.automatic)
         .task { await store.refreshNotificationAuthorization() }
     }
 
