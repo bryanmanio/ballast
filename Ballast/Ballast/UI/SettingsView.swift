@@ -33,6 +33,7 @@ struct SettingsView: View {
                 hiddenSection
                 behaviourSection
                 notificationsSection
+                shortcutsSection
                 advancedSection
             }
             .padding(.horizontal, 12)
@@ -201,6 +202,19 @@ struct SettingsView: View {
         }
     }
 
+    /// The menu's controls are icons with no room for a label, so this is
+    /// where the keys they answer to are written down.
+    private var shortcutsSection: some View {
+        SettingsSection("Keyboard") {
+            ShortcutRow("Filter containers", keys: "⌘F")
+            ShortcutRow("Refresh now", keys: "⌘R")
+            ShortcutRow("Downtime history", keys: "⌘Y")
+            ShortcutRow("Settings", keys: "⌘,")
+            ShortcutRow("Back to the list", keys: "esc")
+            Caption("These work while the menu is open. Quit is in the right-click menu, on the menu bar icon or on the menu itself.")
+        }
+    }
+
     private var advancedSection: some View {
         DisclosureGroup(isExpanded: $showAdvanced) {
             VStack(alignment: .leading, spacing: 10) {
@@ -334,6 +348,36 @@ private struct Caption: View {
             .font(.system(size: 10))
             .foregroundStyle(.tertiary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// One shortcut, with its keys set in the small raised box macOS uses for
+/// them everywhere else.
+private struct ShortcutRow: View {
+    let label: String
+    let keys: String
+
+    init(_ label: String, keys: String) {
+        self.label = label
+        self.keys = keys
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 11))
+            Spacer(minLength: 4)
+            Text(keys)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.primary.opacity(0.07))
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                }
+        }
     }
 }
 
