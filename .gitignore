@@ -17,3 +17,6 @@ Package.resolved
 
 # Netlify CLI local state
 .netlify/
+
+# Personal Claude Code settings
+.claude/settings.local.json
