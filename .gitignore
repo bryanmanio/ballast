@@ -14,3 +14,6 @@ Package.resolved
 # Synology Drive sync artefacts
 @eaDir/
 *.swp
+
+# Netlify CLI local state
+.netlify/
