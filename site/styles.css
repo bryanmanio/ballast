@@ -713,63 +713,6 @@ section { padding-block: clamp(4rem, 2rem + 7vw, 7.5rem); }
   align-items: start;
 }
 
-/* --- setup ---------------------------------------------------------------- */
-
-.setup { display: grid; gap: 1.25rem; }
-
-.setup-step {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  gap: 1.125rem;
-  align-items: start;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  padding: 1.5rem;
-}
-.setup-step .body > * + * { margin-top: 0.5rem; }
-.setup-step .step-n { margin-bottom: 0; }
-.setup-step p { font-size: 0.9375rem; color: var(--text-2); }
-
-.cmd {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.875rem !important;
-  background: var(--bg-sunken);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
-  padding: 0.5625rem 0.5625rem 0.5625rem 0.875rem;
-  overflow: hidden;
-}
-.cmd code {
-  font-size: 0.8125rem;
-  color: var(--text);
-  white-space: nowrap;
-  overflow-x: auto;
-  flex: 1;
-  scrollbar-width: none;
-}
-.cmd code::-webkit-scrollbar { display: none; }
-.copy {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3125rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-2);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 7px;
-  padding: 0.25rem 0.5rem;
-  cursor: pointer;
-  transition: color 140ms ease-out, border-color 140ms ease-out, transform 100ms ease-out;
-}
-.copy:hover { color: var(--text); border-color: var(--text-3); }
-.copy:active { transform: scale(0.97); }
-.copy svg { width: 11px; height: 11px; }
-
 /* --- requirements --------------------------------------------------------- */
 
 .reqs {
@@ -848,7 +791,7 @@ footer {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .btn:active, .copy:active { transform: none; }
+  .btn:active { transform: none; }
   .row-actions button:active { transform: none; }
   .spinner { border-top-color: color-mix(in oklab, var(--text) 20%, transparent); opacity: 0.7; }
 }
