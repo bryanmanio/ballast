@@ -5,22 +5,6 @@
 (() => {
   'use strict';
 
-  /* --- copy buttons ------------------------------------------------------ */
-
-  document.querySelectorAll('.copy').forEach((btn) => {
-    const label = btn.querySelector('span');
-    const original = label.textContent;
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.copy);
-        label.textContent = 'Copied';
-      } catch {
-        label.textContent = 'Press ⌘C';
-      }
-      setTimeout(() => { label.textContent = original; }, 1600);
-    });
-  });
-
   /* --- the menu ---------------------------------------------------------- */
 
   const list    = document.querySelector('.pop-list');
