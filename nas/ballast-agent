@@ -1,0 +1,175 @@
+#!/bin/sh
+#
+# ballast-agent — read-only Docker inspector for the Ballast menu bar app.
+#
+# Installed on the Synology at /usr/local/bin/ballast-agent, owned root:root,
+# mode 0755, and invoked over SSH as:
+#
+#     sudo -n /usr/local/bin/ballast-agent list
+#
+# This script exists so the sudoers grant can be scoped to one auditable,
+# narrow command surface instead of to the whole docker binary.
+#
+# Most subcommands only read. `start`, `stop` and `restart` change container
+# state, and are the only mutating operations here. Each validates its
+# argument against the live container list before passing it to docker, so a
+# caller cannot smuggle flags or arbitrary text through to the daemon.
+#
+# Keep that property. Anything broader — `exec`, `run`, `rm`, arbitrary
+# subcommands — would turn this grant back into full root.
+#
+# Must stay root-owned and not writable by the SSH user, or the NOPASSWD
+# grant becomes a path to root. install.sh enforces this.
+
+set -u
+
+PROTOCOL_VERSION=1
+
+# Fail with a machine-readable reason the app can map to a specific hint,
+# rather than a blob of shell noise.
+die() {
+    echo "ballast: $1" >&2
+    exit "${2:-1}"
+}
+
+find_docker() {
+    for candidate in /usr/local/bin/docker /usr/bin/docker /bin/docker; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    # Container Manager and the older Docker package have moved around
+    # between DSM releases; fall back to a glob over the package tree.
+    for candidate in /var/packages/ContainerManager/target/usr/bin/docker \
+                     /var/packages/Docker/target/usr/bin/docker; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+DOCKER=$(find_docker) || die "docker-not-found" 3
+
+# One record per container. Every field is independently valid JSON and
+# fields are tab-separated, so the client can split on tabs and decode each
+# field on its own. This sidesteps the two fragile parts of scraping
+# `docker ps`: the human-readable Ports string and the comma-joined Labels
+# string, both of which are ambiguous when values contain delimiters.
+#
+# Every nested lookup goes through `index` rather than dotted access.
+# Docker renders inspect output as a map, so a dotted path to a key that
+# isn't there is a hard template error, not nil — and most containers are
+# missing at least one of these (no HEALTHCHECK, no exposed ports, and so
+# on). `index` returns nil for a missing key instead of failing.
+#
+# Field order is part of the protocol. Append only, and bump
+# PROTOCOL_VERSION when you do.
+FORMAT='{{json .Id}}{{"\t"}}{{json .Name}}{{"\t"}}{{json (index .State "Status")}}{{"\t"}}{{if index .State "Health"}}{{json (index .State "Health" "Status")}}{{else}}null{{end}}{{"\t"}}{{json (index .State "ExitCode")}}{{"\t"}}{{json (index .State "OOMKilled")}}{{"\t"}}{{json .RestartCount}}{{"\t"}}{{json (index .Config "Image")}}{{"\t"}}{{json (index .NetworkSettings "Ports")}}{{"\t"}}{{json (index .Config "ExposedPorts")}}{{"\t"}}{{json (index .HostConfig "NetworkMode")}}{{"\t"}}{{json (index .Config "Labels")}}{{"\t"}}{{json (index .State "StartedAt")}}{{"\t"}}{{json (index .State "FinishedAt")}}'
+
+cmd_list() {
+    ids=$("$DOCKER" ps --all --quiet --no-trunc 2>/dev/null) || die "docker-unavailable" 4
+
+    echo "#ballast $PROTOCOL_VERSION"
+
+    count=0
+    if [ -n "$ids" ]; then
+        err_file=$(mktemp)
+
+        # Fast path: inspect everything in one call.
+        # shellcheck disable=SC2086 -- intentional word splitting over ids
+        if records=$("$DOCKER" inspect --format "$FORMAT" $ids 2>"$err_file"); then
+            printf '%s\n' "$records"
+            count=$(printf '%s\n' "$records" | wc -l | tr -d ' ')
+        else
+            # `docker inspect` fails the whole batch if any single object
+            # fails — and a container can legitimately disappear between
+            # being listed and being inspected. Retry one at a time so one
+            # casualty doesn't cost the entire listing.
+            reason=$(head -1 "$err_file" | tr -d '\r' | cut -c1-200)
+            skipped=0
+            for id in $ids; do
+                if record=$("$DOCKER" inspect --format "$FORMAT" "$id" 2>/dev/null); then
+                    printf '%s\n' "$record"
+                    count=$((count + 1))
+                else
+                    skipped=$((skipped + 1))
+                fi
+            done
+
+            if [ "$skipped" -gt 0 ]; then
+                echo "#warn skipped $skipped of $((count + skipped)) containers: ${reason:-unknown error}"
+            fi
+
+            # Everything failing means something is actually wrong, rather
+            # than one container having gone away.
+            if [ "$count" -eq 0 ]; then
+                rm -f "$err_file"
+                die "inspect-failed: ${reason:-unknown error}" 5
+            fi
+        fi
+
+        rm -f "$err_file"
+    fi
+
+    # Terminator lets the client distinguish "no containers" from output
+    # truncated by a dropped SSH connection.
+    echo "#end $count"
+}
+
+# Resolve a caller-supplied container reference to a real container ID.
+#
+# The caller is only ever allowed to name a container that currently exists.
+# This is what keeps `--privileged`, `;rm -rf /`, or any other injected
+# argument from reaching docker: anything that is not an exact match for a
+# known ID or name is rejected before docker is invoked.
+resolve_container() {
+    wanted=$1
+    [ -n "$wanted" ] || die "missing-container" 2
+
+    "$DOCKER" ps --all --no-trunc --format '{{.ID}} {{.Names}}' 2>/dev/null \
+        | while read -r id names; do
+            if [ "$id" = "$wanted" ] || [ "$names" = "$wanted" ]; then
+                echo "$id"
+                break
+            fi
+        done
+}
+
+cmd_lifecycle() {
+    action=$1
+    reference=$2
+
+    id=$(resolve_container "$reference")
+    [ -n "$id" ] || die "no-such-container" 6
+
+    if output=$("$DOCKER" "$action" "$id" 2>&1); then
+        echo "#ballast $PROTOCOL_VERSION"
+        echo "#ok $action $id"
+    else
+        die "$action-failed: $(echo "$output" | head -1 | cut -c1-200)" 7
+    fi
+}
+
+cmd_check() {
+    echo "#ballast $PROTOCOL_VERSION"
+    echo "docker-path $DOCKER"
+    if version=$("$DOCKER" version --format '{{.Server.Version}}' 2>/dev/null); then
+        echo "docker-server $version"
+    else
+        die "docker-unavailable" 4
+    fi
+    echo "agent-path $0"
+    echo "euid $(id -u)"
+}
+
+case "${1:-}" in
+    list)    cmd_list ;;
+    check)   cmd_check ;;
+    version) echo "$PROTOCOL_VERSION" ;;
+    start|stop|restart)
+             cmd_lifecycle "$1" "${2:-}" ;;
+    *)       die "usage: ballast-agent {list|check|version|start|stop|restart <container>}" 2 ;;
+esac
