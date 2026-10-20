@@ -40,7 +40,8 @@ final class MenuBarContextMenu: NSObject {
     private func present() {
         let menu = NSMenu()
 
-        let settings = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: "")
+        // ⌘, from this menu, matching the ⌘, the popover's header answers to.
+        let settings = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
 
