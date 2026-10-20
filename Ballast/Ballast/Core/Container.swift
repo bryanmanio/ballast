@@ -86,6 +86,40 @@ struct Container: Identifiable, Hashable, Sendable {
         labels["ballast.name"] ?? name
     }
 
+    /// Tags that name a channel rather than a version, so they're worth
+    /// looking past when something better is available.
+    private static let channelTags: Set<String> = [
+        "latest", "main", "master", "release", "stable", "edge",
+        "develop", "development", "nightly", "rolling", "beta",
+    ]
+
+    /// The tag part of the image reference, if there is one.
+    ///
+    /// A registry host can carry a port (`registry:5000/img`) and an image can
+    /// be pinned by digest (`img@sha256:…`), so the last colon isn't always a
+    /// tag separator.
+    var imageTag: String? {
+        guard !image.contains("@"), let colon = image.lastIndex(of: ":") else { return nil }
+        let tag = image[image.index(after: colon)...]
+        // A slash after the colon means the colon belonged to the host.
+        guard !tag.contains("/"), !tag.isEmpty else { return nil }
+        return String(tag)
+    }
+
+    /// Best available version for display: the image tag when it names a
+    /// version, otherwise the image's own OCI version label, otherwise
+    /// whatever the tag was.
+    var version: String? {
+        let tag = imageTag
+        if let tag, !Self.channelTags.contains(tag.lowercased()) { return tag }
+
+        if let labelled = labels["org.opencontainers.image.version"],
+           !labelled.isEmpty, !Self.channelTags.contains(labelled.lowercased()) {
+            return labelled
+        }
+        return tag
+    }
+
     /// Compose stack this container belongs to, used for grouping.
     var composeProject: String? {
         labels["com.docker.compose.project"] ?? labels["ballast.group"]

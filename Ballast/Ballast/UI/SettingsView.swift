@@ -32,6 +32,7 @@ struct SettingsView: View {
             .padding(.vertical, 12)
         }
         .frame(maxHeight: 460)
+        .scrollIndicators(.never)
     }
 
     // MARK: Sections

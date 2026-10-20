@@ -33,6 +33,9 @@ struct MenuContentView: View {
 
     private var hasStopped: Bool { !store.stoppedContainers.isEmpty }
 
+    /// Floor for the list, so the popover can never collapse to zero height.
+    private static let minListHeight: CGFloat = 44
+
     var body: some View {
         VStack(spacing: 0) {
             if showingSettings {
@@ -192,6 +195,7 @@ struct MenuContentView: View {
     private var scopePicker: some View {
         ScopeControl(scope: $scope)
             .padding(.horizontal, 10)
+            .padding(.top, 8)
             .padding(.bottom, 6)
     }
 
@@ -244,10 +248,16 @@ struct MenuContentView: View {
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.height
                 } action: { height in
+                    // Swapping scopes rebuilds the list, and the measurement
+                    // passes through zero on the way. Letting that reach the
+                    // frame collapses the popover to nothing, which the menu
+                    // bar treats as a dismissal — so ignore it.
+                    guard height > 0 else { return }
                     contentHeight = height
                 }
             }
-            .frame(height: min(contentHeight, maxListHeight))
+            .frame(height: min(max(contentHeight, Self.minListHeight), maxListHeight))
+            .scrollIndicators(.never)
         }
     }
 
