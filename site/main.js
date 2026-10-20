@@ -26,8 +26,7 @@
   const list    = document.querySelector('.pop-list');
   const stage   = document.querySelector('.stage');
   const summary = document.getElementById('pop-summary');
-  const item     = document.getElementById('mb-item');
-  const replay  = document.getElementById('replay');
+  const item    = document.getElementById('mb-item');
   if (!list || !stage || !summary || !item) return;
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -118,10 +117,7 @@
   const play = () => {
     if (played || !jellyfin) return;
     played = true;
-    setTimeout(() => {
-      setDown(jellyfin);
-      if (replay) replay.hidden = false;
-    }, reduced ? 0 : 2200);
+    setTimeout(() => setDown(jellyfin), reduced ? 0 : 2200);
   };
 
   if (reduced) {
@@ -133,15 +129,6 @@
     io.observe(stage);
   } else {
     play();
-  }
-
-  if (replay) {
-    replay.addEventListener('click', () => {
-      replay.hidden = true;
-      list.querySelectorAll('.row[data-state="down"]').forEach(setUp);
-      played = false;
-      play();
-    });
   }
 
   sync();
