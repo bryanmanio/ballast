@@ -1,0 +1,16 @@
+# Build output
+.build/
+DerivedData/
+*.xcuserdatad/
+xcuserdata/
+
+# SwiftPM
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Synology Drive sync artefacts
+@eaDir/
+*.swp
