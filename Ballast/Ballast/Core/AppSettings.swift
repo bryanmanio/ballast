@@ -31,6 +31,10 @@ final class AppSettings {
         // default, and clearing the field is the opposite of that.
         didSet { write(hotkey?.storageValue ?? "", .hotkey) }
     }
+    /// No longer has a switch in Settings: a probe reports a service as
+    /// degraded for reasons that have nothing to do with the service, and a
+    /// status you can't trust is worse than no status. Still read, so anyone
+    /// who wants it can set the default by hand.
     var probeEnabled: Bool { didSet { write(probeEnabled, .probeEnabled) } }
     /// Compose stack names are noise when you already know what runs where,
     /// so the list is flat unless asked otherwise.

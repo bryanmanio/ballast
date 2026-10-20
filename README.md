@@ -26,11 +26,15 @@ Status comes from Docker, merged worst-wins:
 
 There is a third signal available — an HTTP request to each service's URL —
 which catches a container that is running, passing its healthcheck, and
-serving nothing. It is **off by default**, because it reports a service as
-degraded for reasons that have nothing to do with the service: the Mac's
-network path, a slow first response, a port that doesn't speak HTTP. A status
-you can't trust is worse than no status. Turn it on in Settings → Connection
-if you want it.
+serving nothing. It is **off, and has no switch in Settings**, because it
+reports a service as degraded for reasons that have nothing to do with the
+service: the Mac's network path, a slow first response, a port that doesn't
+speak HTTP. A status you can't trust is worse than no status. If you want it
+anyway:
+
+```sh
+defaults write com.bryanmaniotakis.ballast probeEnabled -bool YES
+```
 
 ## Setup
 
@@ -103,9 +107,9 @@ with a source list: **General**, **Connection**, **Menu**, **Notifications**,
 - **SSH destination** — `user@host`, or an alias from `~/.ssh/config`
 - **Local hostname** — used to build each service's URL (defaults to the host
   part of the SSH destination)
-- **Remote hostname** — optional; a Tailscale name works well here. When the
-  local hostname doesn't answer, Ballast switches to this one, so the same
-  menu works away from home.
+- **Remote hostname** — optional, for when you're away from home. A Tailscale
+  name works well here: when the local hostname doesn't answer, Ballast
+  switches to this one, so the same menu keeps working off your network.
 
 "Test connection" reports exactly what's wrong if something isn't right:
 agent missing, sudo not configured, Docker stopped, host unreachable, and so
