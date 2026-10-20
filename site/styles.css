@@ -86,7 +86,7 @@ body {
 
 img, svg { display: block; max-width: 100%; }
 a { color: inherit; }
-button { font: inherit; color: inherit; background: none; border: 0; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; }
 
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -462,16 +462,52 @@ section { padding-block: clamp(4rem, 2rem + 7vw, 7.5rem); }
 .row-actions { margin-left: auto; display: none; gap: 2px; flex: none; }
 .row-actions button {
   width: 18px; height: 18px;
+  flex: none;
   display: grid; place-items: center;
   border-radius: 5px;
   color: var(--text-2);
   cursor: pointer;
 }
 .row-actions button:hover { background: color-mix(in oklab, var(--text) 10%, transparent); }
-.row-actions svg { width: 9px; height: 9px; }
+.row-actions button:active { transform: scale(0.9); }
+.row-actions svg { width: 11px; height: 11px; }
 .row:hover .row-port { display: none; }
 .row:hover .row-actions { display: flex; }
 .row.no-open:hover { background: none; }
+
+/* While an action is in flight the app shows a spinner in a fixed frame, so
+   the row neither reflows nor offers the control a second time. */
+.row-busy {
+  margin-left: auto;
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: none;
+}
+.row.is-busy .row-busy { display: flex; }
+.row.is-busy .row-port,
+.row.is-busy .row-actions,
+.row.is-busy .row-ver { display: none; }
+.row.is-busy { background: none; }
+
+.busy-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.spinner {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.6px solid color-mix(in oklab, var(--text) 20%, transparent);
+  border-top-color: var(--text-2);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .pop-footer {
   display: flex;
@@ -837,6 +873,8 @@ footer {
     transition-duration: 0.01ms !important;
   }
   .btn:active, .replay:active, .copy:active { transform: none; }
+  .row-actions button:active { transform: none; }
+  .spinner { border-top-color: color-mix(in oklab, var(--text) 20%, transparent); opacity: 0.7; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

@@ -39,6 +39,12 @@
   <symbol id="m-ok" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.9" fill="none" stroke="currentColor" stroke-width="1.35"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/></symbol>
   <symbol id="m-bad" viewBox="0 0 14 14"><path fill="currentColor" fill-rule="evenodd" d="M1 7A6 6 0 1 1 13 7 6 6 0 1 1 1 7ZM8.188 8.923 8.923 8.188 5.812 5.077 5.077 5.812ZM8.923 5.812 8.188 5.077 5.077 8.188 5.812 8.923Z"/></symbol>
 
+  <!-- row controls: heavier strokes, because these render at 11px -->
+  <symbol id="a-restart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 12a8.4 8.4 0 1 1-2.46-5.94"/><path d="M20.4 3.6v6h-6"/></symbol>
+  <symbol id="a-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.2" fill="currentColor"/></symbol>
+  <symbol id="a-start" viewBox="0 0 24 24"><path d="M7.6 4.9 19.4 12 7.6 19.1Z" fill="currentColor"/></symbol>
+  <symbol id="a-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7.4 16.6 16.4 7.6"/><path d="M9.3 7.2h8.1v8.1"/></symbol>
+
   <!-- ui icons -->
   <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01"/><path d="M20.5 3.5V9h-5.5"/></symbol>
@@ -71,7 +77,6 @@
   <div class="wrap nav-inner">
     <a class="brand" href="/"><svg><use href="#mark"/></svg>Ballast</a>
     <nav class="nav-links">
-      <a href="#how">How it works</a>
       <a href="#privacy">Privacy</a>
       <a href="#setup">Setup</a>
       <a href="mailto:support@ballast.ing">Support</a>
@@ -89,10 +94,8 @@
       <span class="pill"><svg><use href="#i-apple"/></svg> Requires macOS 26 or later</span>
       <h1 class="display">Everything running on your NAS, in your menu bar.</h1>
       <p class="lede">
-        Ballast lists the Docker services on your Synology, shows you which ones are
-        actually up, and opens any of them in your browser with a click. It reads your
-        NAS over SSH using the key you already have — so there is nothing new to expose
-        and nothing new to remember.
+        Ballast lists the Docker services on your Synology, shows which ones are
+        actually up, and opens any of them in a click.
       </p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="https://github.com/bryanmanio/ballast/releases/latest">
@@ -130,16 +133,16 @@
           </div>
           <div class="pop-divider"></div>
           <div class="pop-list">
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">immich-machine-learning</span><span class="row-ver">release</span><span class="row-port is-na">N/A</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">immich-postgres</span><span class="row-ver">pg14-v0.2.0</span><span class="row-port is-na">N/A</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">immich-server</span><span class="row-ver">release</span><span class="row-port">2283</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
-            <div class="row" id="row-jellyfin"><span class="row-glyph" id="jf-glyph" style="color:var(--ok)"><svg><use href="#s-ok" id="jf-use"/></svg></span><span class="row-name">jellyfin</span><span class="row-ver">10.9.11</span><span class="row-port">8096</span><span class="row-actions" id="jf-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">paperless-redis</span><span class="row-ver">7</span><span class="row-port is-na">N/A</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">paperless-webserver</span><span class="row-ver">latest</span><span class="row-port">8000</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">plex</span><span class="row-ver">latest</span><span class="row-port">32400</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">transmission</span><span class="row-ver">latest</span><span class="row-port">9091</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">uptime-kuma</span><span class="row-ver">1</span><span class="row-port">3001</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
-            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">vaultwarden</span><span class="row-ver">latest</span><span class="row-port">8222</span><span class="row-actions"><button tabindex="-1"><svg><use href="#i-restart"/></svg></button><button tabindex="-1"><svg><use href="#i-stop"/></svg></button><button tabindex="-1"><svg><use href="#i-open"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">immich-machine-learning</span><span class="row-ver">release</span><span class="row-port is-na">N/A</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">immich-postgres</span><span class="row-ver">pg14-v0.2.0</span><span class="row-port is-na">N/A</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">immich-server</span><span class="row-ver">release</span><span class="row-port">2283</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
+            <div class="row" id="row-jellyfin"><span class="row-glyph" id="jf-glyph" style="color:var(--ok)"><svg><use href="#s-ok" id="jf-use"/></svg></span><span class="row-name">jellyfin</span><span class="row-ver">10.9.11</span><span class="row-port">8096</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions" id="jf-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">paperless-redis</span><span class="row-ver">7</span><span class="row-port is-na">N/A</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">paperless-webserver</span><span class="row-ver">latest</span><span class="row-port">8000</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">plex</span><span class="row-ver">latest</span><span class="row-port">32400</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">transmission</span><span class="row-ver">latest</span><span class="row-port">9091</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">uptime-kuma</span><span class="row-ver">1</span><span class="row-port">3001</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
+            <div class="row"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span><span class="row-name">vaultwarden</span><span class="row-ver">latest</span><span class="row-port">8222</span><span class="row-busy" aria-hidden="true"><span class="spinner"></span><span class="busy-label"></span></span><span class="row-actions"><button type="button" tabindex="-1" data-act="restart" aria-hidden="true"><svg><use href="#a-restart"/></svg></button><button type="button" tabindex="-1" data-act="stop" aria-hidden="true"><svg><use href="#a-stop"/></svg></button><button type="button" tabindex="-1" data-act="open" aria-hidden="true"><svg><use href="#a-open"/></svg></button></span></div>
           </div>
           <div class="pop-divider"></div>
           <div class="pop-footer"><svg style="width:11px;height:11px"><use href="#i-refresh"/></svg> Updated just now · checks every 30s</div>
@@ -148,7 +151,7 @@
     </div>
 
     <figcaption class="stage-caption">
-      <span>The menu, with a dozen containers on a Synology. Hover a row to swap its port for start, stop and restart.</span>
+      <span>A dozen containers on a Synology. Hover a row for its controls — they work, so try one.</span>
       <button class="replay" id="replay" hidden><svg><use href="#i-refresh"/></svg> Replay</button>
     </figcaption>
   </figure>
@@ -161,9 +164,8 @@
       <p class="eyebrow">How it works</p>
       <h2>One read-only script, over the SSH you already use.</h2>
       <p class="lede">
-        There is no daemon to install, no Docker socket to expose, and no password stored
-        anywhere in the app. Every 30 seconds Ballast runs a small script on the NAS and
-        reads what it prints back.
+        No daemon, no exposed Docker socket, no stored password. Every 30 seconds
+        Ballast runs a small script on the NAS and reads what it prints.
       </p>
     </div>
 
@@ -172,63 +174,28 @@
         <div class="step-n">1</div>
         <h3>Your Mac connects over SSH</h3>
         <p>
-          Ballast reuses your existing SSH key and <code>~/.ssh/config</code>, so an alias
-          you already type in Terminal works here too. Nothing is stored in the app.
+          Ballast reuses your SSH key and <code>~/.ssh/config</code>. An alias you
+          already type in Terminal works here.
         </p>
       </div>
       <div class="flow-step">
         <div class="step-n">2</div>
         <h3>A read-only script inspects Docker</h3>
         <p>
-          On the NAS, <code>ballast-agent</code> asks Docker to describe the containers
-          and prints the answer. It can inspect; it cannot build, pull or delete.
+          <code>ballast-agent</code> asks Docker to describe the containers. It can
+          inspect; it cannot build, pull or delete.
         </p>
       </div>
       <div class="flow-step">
         <div class="step-n">3</div>
         <h3>The menu shows what came back</h3>
         <p>
-          Each container becomes a row with a status and a port. Clicking the row opens
-          that service's own web interface in your browser.
+          Each container becomes a row with a status and a port. Click it to open
+          that service.
         </p>
       </div>
     </div>
 
-    <div class="wire" aria-hidden="true">
-<pre>Mac                                      Synology
-───                                      ────────
-<span class="hl">Ballast</span> ──ssh──▶ sudo ballast-agent list ──▶ docker inspect
-        ◀──── tab-separated records ─────
-        ──http──▶ each service's own URL   (optional liveness probe)</pre>
-    </div>
-
-    <div class="section-head" style="margin-top:4rem;margin-bottom:0">
-      <h2 style="font-size:1.5rem">What "up" actually means</h2>
-      <p class="muted">Two signals, merged worst-wins, so a row never looks better than its weakest part.</p>
-    </div>
-
-    <div class="signals">
-      <div class="signal">
-        <h3><span style="color:var(--accent)"><svg><use href="#i-info"/></svg></span> Docker's own state</h3>
-        <p>Is the container running, stopped, paused or restarting — and if it stopped, with what exit code.</p>
-      </div>
-      <div class="signal">
-        <h3><span style="color:var(--accent)"><svg><use href="#i-check"/></svg></span> The image's healthcheck</h3>
-        <p>If the image ships a <code>HEALTHCHECK</code>, Ballast shows what the service thinks of itself.</p>
-      </div>
-    </div>
-
-    <div class="callout">
-      <svg><use href="#i-info"/></svg>
-      <p>
-        There is a third signal — an HTTP request to each service's URL — which catches a
-        container that is running, passing its healthcheck, and serving nothing. It is
-        <strong>off by default</strong>, because it also reports a service as degraded for
-        reasons that have nothing to do with the service: your Mac's network path, a slow
-        first response, a port that doesn't speak HTTP. A status you can't trust is worse
-        than no status. Turn it on in Settings if you want it.
-      </p>
-    </div>
   </div>
 </section>
 
@@ -251,10 +218,8 @@
         </div>
         <h3>Four statuses you can read at a glance</h3>
         <p>
-          Each one is a different shape as well as a different colour, so the list still
-          reads if you don't see colour the way most people do. When the NAS stops
-          answering, everything turns unknown rather than showing you a remembered
-          "healthy" that isn't true any more.
+          Each is a different shape, not just a different colour. When the NAS stops
+          answering, everything turns unknown rather than showing a stale "healthy".
         </p>
       </div>
 
@@ -264,18 +229,17 @@
             <span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span> jellyfin
             <span class="meta mono" style="margin-left:0">10.9.11</span>
             <span class="meta" style="display:flex;gap:3px;align-items:center;color:var(--text-2)">
-              <svg style="width:10px;height:10px"><use href="#i-restart"/></svg>
-              <svg style="width:10px;height:10px"><use href="#i-stop"/></svg>
-              <svg style="width:10px;height:10px"><use href="#i-open"/></svg>
+              <svg style="width:11px;height:11px"><use href="#a-restart"/></svg>
+              <svg style="width:11px;height:11px"><use href="#a-stop"/></svg>
+              <svg style="width:11px;height:11px"><use href="#a-open"/></svg>
             </span>
           </span>
           <span class="chip"><span class="row-glyph" style="color:var(--ok)"><svg><use href="#s-ok"/></svg></span> vaultwarden <span class="meta">8222</span></span>
         </div>
         <h3>Start, stop and restart from the row</h3>
         <p>
-          Hovering a row replaces its port with restart and stop — or start, if the
-          container is stopped. These are the only things Ballast can change on the NAS,
-          and the agent checks the container exists before it passes the name to Docker.
+          Hover a row to swap its port for restart and stop — or start, if it's
+          stopped. The only things Ballast can change.
         </p>
       </div>
 
@@ -288,9 +252,8 @@
         </div>
         <h3>A crash at 3am no longer leaves no trace</h3>
         <p>
-          Ballast compares each check with the last one, so a container that fell over and
-          was restarted by Docker while you slept still shows up. History lists exits,
-          crash-restarts and starts, newest first, with how long each one was down for.
+          Each check is compared with the last, so something that fell over and came
+          back while you slept still shows up, with how long it was down.
         </p>
       </div>
 
@@ -307,48 +270,24 @@
         </div>
         <h3>Notifications that don't cry wolf</h3>
         <p>
-          You only hear about a container that exited with a non-zero code or was killed
-          for running out of memory. A clean stop, a restart Docker already handled, and
-          anything you stopped yourself from this menu are all recorded without a peep.
+          You only hear about a non-zero exit or an out-of-memory kill. Clean stops,
+          restarts Docker already handled, and anything you did yourself stay quiet.
         </p>
-      </div>
-
-      <div class="card span-2">
-        <h3><span style="color:var(--accent);display:inline-block;vertical-align:-3px;margin-right:6px"><svg style="width:17px;height:17px"><use href="#i-tag"/></svg></span>Configured where the containers are</h3>
-        <p style="margin-bottom:0.5rem">
-          Put a label in your compose file and Ballast picks it up — so nothing has to be
-          set up twice, and a new machine gets the same menu. Without any labels it uses
-          the container's published ports, preferring the ones that look like web
-          interfaces and ignoring loopback-only bindings, which your Mac couldn't reach anyway.
-        </p>
-        <table class="labels">
-          <thead><tr><th>Label</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><code>ballast.url</code></td><td>Use this exact URL — handy behind a reverse proxy</td></tr>
-            <tr><td><code>ballast.port</code></td><td>Say which published port is the web interface</td></tr>
-            <tr><td><code>ballast.name</code></td><td>Show a friendlier name than the container's</td></tr>
-            <tr><td><code>ballast.group</code></td><td>Group it with others; compose stacks group on their own</td></tr>
-            <tr><td><code>ballast.hide</code></td><td>Keep it out of the menu everywhere</td></tr>
-            <tr><td><code>ballast.notify</code></td><td>Never notify about its exits, but still record them</td></tr>
-          </tbody>
-        </table>
       </div>
 
       <div class="card">
         <h3><span style="color:var(--accent);display:inline-block;vertical-align:-3px;margin-right:6px"><svg style="width:17px;height:17px"><use href="#i-pointer"/></svg></span>Works away from home</h3>
         <p>
-          Give Ballast a second hostname — a Tailscale name works well — and when the
-          local one doesn't answer it quietly switches over. The same menu, the same
-          clicks, from anywhere.
+          Give Ballast a second hostname — a Tailscale name works well — and it
+          switches over when the local one stops answering.
         </p>
       </div>
 
       <div class="card">
         <h3><span style="color:var(--accent);display:inline-block;vertical-align:-3px;margin-right:6px"><svg style="width:17px;height:17px"><use href="#i-hide"/></svg></span>Only the rows you care about</h3>
         <p>
-          Hide the containers you never click. Filter by name from the header. Sort by
-          status so anything needing attention floats to the top, or by name to ignore
-          status entirely.
+          Hide the containers you never click, filter by name, and sort by status so
+          problems float to the top.
         </p>
       </div>
 
@@ -363,9 +302,8 @@
       <p class="eyebrow">Privacy &amp; security</p>
       <h2>Nothing leaves your Mac.</h2>
       <p class="lede">
-        Ballast talks to exactly one machine: your NAS, over SSH, using the key already on
-        your Mac. There is no cloud, no account, no analytics, and no telemetry of any
-        kind. This paragraph is the whole privacy policy.
+        One machine, over SSH, with the key already on your Mac. No cloud, no account,
+        no telemetry. This paragraph is the whole policy.
       </p>
     </div>
 
@@ -373,25 +311,24 @@
       <li>
         <svg><use href="#i-key"/></svg>
         <p><strong>No credentials in the app</strong>
-        Ballast runs unattended, so it uses key authentication and reads your existing
-        <code>~/.ssh/config</code>. It never asks for a password and has nothing to leak.</p>
+        Key authentication and your existing <code>~/.ssh/config</code> — no password
+        is ever asked for, so none can leak.</p>
       </li>
       <li>
         <svg><use href="#i-shield"/></svg>
         <p><strong>No Docker socket exposed</strong>
-        DSM's Docker socket stays root-only. One sudoers rule is scoped to one root-owned
-        script that can only inspect containers and start, stop or restart them.</p>
+        The socket stays root-only. One sudoers rule, scoped to one root-owned script
+        that can only inspect and start, stop or restart.</p>
       </li>
       <li>
         <svg><use href="#i-lock"/></svg>
         <p><strong>No daemon on the NAS</strong>
-        Nothing listens, nothing runs between checks. The script is executed over your SSH
-        connection and exits.</p>
+        Nothing listens, nothing runs between checks. The script runs over SSH and exits.</p>
       </li>
       <li>
         <svg><use href="#i-term"/></svg>
         <p><strong>Container names can't reach a shell</strong>
-        A name is validated against the live container list and travels as its own
+        A name is checked against the live container list and travels as its own
         argument, never inside a command string.</p>
       </li>
     </ul>
@@ -405,8 +342,8 @@
       <p class="eyebrow">Getting set up</p>
       <h2>Three steps, about ten minutes.</h2>
       <p class="lede">
-        This is the honest part: Ballast needs SSH access to your NAS and one small script
-        installed there. It is not a download-and-go app, and it doesn't pretend to be.
+        The honest part: Ballast needs SSH access and one small script on the NAS. It is
+        not a download-and-go app.
       </p>
     </div>
 
@@ -416,10 +353,8 @@
         <div class="body">
           <h3>Turn on SSH and add a key</h3>
           <p>
-            Enable SSH in DSM under Control Panel → Terminal &amp; SNMP. The account has to
-            be in the administrators group, because DSM refuses SSH logins for everyone
-            else. Ballast runs unattended, so it needs a key with no passphrase — it can't
-            answer a prompt.
+            Use an account in the administrators group, and leave the passphrase empty —
+            Ballast runs unattended and can't answer a prompt.
           </p>
           <div class="cmd">
             <code>ssh-keygen -t ed25519 -f ~/.ssh/id_ballast -C "ballast"</code>
@@ -435,9 +370,8 @@
         <div class="body">
           <h3>Install the agent on the NAS</h3>
           <p>
-            One script copies <code>ballast-agent</code> into place, makes it root-owned,
-            and adds a single sudoers rule scoped to that one file. DSM asks for your
-            password once during the install and never again.
+            One script installs <code>ballast-agent</code> root-owned and adds a sudoers
+            rule scoped to that one file. DSM asks for your password once.
           </p>
           <div class="cmd">
             <code>./nas/deploy.sh you@nas.local</code>
@@ -453,14 +387,11 @@
         <div class="body">
           <h3>Point the app at your NAS</h3>
           <p>
-            Open Settings with the gear in the menu and fill in the SSH destination —
-            <code>user@host</code>, or an alias from your SSH config. "Test connection"
-            then tells you exactly what's wrong if anything is: agent missing, sudo not
-            configured, Docker stopped, host unreachable, each with the specific fix.
+            Fill in the SSH destination — <code>user@host</code>, or an alias from your
+            SSH config. "Test connection" names what's wrong, and the fix.
           </p>
           <p class="fine" style="margin-top:0.75rem">
-            Full instructions, including how to deploy the key without turning on DSM's
-            user home service, are in the
+            Full instructions are in the
             <a class="link" href="https://github.com/bryanmanio/ballast#setup">README</a>.
           </p>
         </div>
