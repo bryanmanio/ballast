@@ -102,7 +102,10 @@ struct ConnectionPane: View {
 
     var body: some View {
         SettingsGroup("NAS") {
-            SettingsRow("SSH destination") {
+            SettingsRow(
+                "SSH destination",
+                subtitle: "user@host, or a ~/.ssh/config alias."
+            ) {
                 RowField(text: $settings.sshDestination, prompt: "ballast@nas.local")
                     .onSubmit { runTest() }
             }
@@ -130,14 +133,7 @@ struct ConnectionPane: View {
             SettingsRow("Remote host") {
                 RowField(text: $settings.remoteHost, prompt: "100.x.y.z")
             }
-            RowNote("Used when the local host doesn't answer.")
-            RowDivider()
-            SettingsRow(
-                "Check services respond",
-                help: "Requests each service's URL as well as reading Docker's state. Catches a container that is running but wedged, at the cost of occasional false alarms."
-            ) {
-                RowToggle(isOn: $settings.probeEnabled)
-            }
+            RowNote("For when you're away from home — a Tailscale name keeps the same menu working off your network.")
         }
 
         advanced
@@ -389,7 +385,7 @@ struct AboutPane: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            AppLogo()
+            BallastMark(size: 72)
             VStack(spacing: 3) {
                 Text("Ballast")
                     .font(.system(size: 20, weight: .semibold))
@@ -437,38 +433,6 @@ struct AboutPane: View {
         let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = info?["CFBundleVersion"] as? String
         return build.map { "Version \(short) (\($0))" } ?? "Version \(short)"
-    }
-}
-
-/// The app's own icon where there is one, and the menu bar mark where there
-/// isn't — a development build with an empty icon set still gets a logo
-/// rather than an empty square.
-private struct AppLogo: View {
-    var body: some View {
-        if let icon = NSApp.applicationIconImage, icon.size.width > 0, hasCustomIcon {
-            Image(nsImage: icon)
-                .resizable()
-                .frame(width: 72, height: 72)
-        } else {
-            Image(systemName: "circle.circle")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(.white)
-                .frame(width: 72, height: 72)
-                .background(
-                    LinearGradient(
-                        colors: [Color.accentColor, Color.accentColor.opacity(0.65)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    in: .rect(cornerRadius: 16)
-                )
-        }
-    }
-
-    /// `applicationIconImage` falls back to the generic application icon, so
-    /// the asset catalog is what decides whether there's a real one to show.
-    private var hasCustomIcon: Bool {
-        NSImage(named: "AppIcon")?.representations.isEmpty == false
     }
 }
 
