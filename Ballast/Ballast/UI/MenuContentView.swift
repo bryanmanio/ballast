@@ -40,11 +40,16 @@ struct MenuContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             if showingSettings {
-                paneHeader("Settings") { showingSettings = false }
+                paneHeader("Settings", close: { showingSettings = false }) { EmptyView() }
                 Divider()
                 SettingsView(settings: settings, store: store)
             } else if showingHistory {
-                paneHeader("History") { showingHistory = false }
+                paneHeader("History", close: { showingHistory = false }) {
+                    Button("Clear") { store.clearHistory() }
+                        .controlSize(.small)
+                        .disabled(store.history.isEmpty)
+                        .help("Forget every recorded exit and restart")
+                }
                 Divider()
                 HistoryView(store: store)
             } else {
@@ -94,8 +99,13 @@ struct MenuContentView: View {
         }
     }
 
-    /// Header for a pane that replaces the list, with the way back.
-    private func paneHeader(_ title: String, close: @escaping () -> Void) -> some View {
+    /// Header for a pane that replaces the list: the way back on the left,
+    /// whatever the pane needs on the right.
+    private func paneHeader<Trailing: View>(
+        _ title: String,
+        close: @escaping () -> Void,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
         HStack(spacing: 5) {
             Button {
                 withAnimation(.easeInOut(duration: 0.15), close)
@@ -112,6 +122,8 @@ struct MenuContentView: View {
             .help("Back to the container list")
 
             Spacer()
+
+            trailing()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

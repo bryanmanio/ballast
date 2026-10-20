@@ -81,14 +81,7 @@ struct SettingsView: View {
             SettingsRow("Remote host") {
                 RowField(text: $settings.remoteHost, prompt: "100.x.y.z")
             }
-            RowNote("Used when the local host doesn't answer.")
-            RowDivider()
-            SettingsRow(
-                "Check services respond",
-                help: "Requests each service's URL as well as reading Docker's state. Catches a container that is running but wedged, at the cost of occasional false alarms."
-            ) {
-                RowToggle(isOn: $settings.probeEnabled)
-            }
+            RowNote("Your Tailscale address, used away from home when the local host doesn't answer.")
         }
     }
 
@@ -204,7 +197,7 @@ struct SettingsView: View {
                     .font(.system(size: 11))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
-                Button("Clear") { store.clearHistory() }
+                Button("Clear history") { store.clearHistory() }
                     .controlSize(.small)
                     .disabled(store.history.isEmpty)
             }
