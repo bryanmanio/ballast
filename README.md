@@ -29,8 +29,8 @@ which catches a container that is running, passing its healthcheck, and
 serving nothing. It is **off by default**, because it reports a service as
 degraded for reasons that have nothing to do with the service: the Mac's
 network path, a slow first response, a port that doesn't speak HTTP. A status
-you can't trust is worse than no status. Turn it on in Settings if you want
-it.
+you can't trust is worse than no status. Turn it on in Settings → Connection
+if you want it.
 
 ## Setup
 
@@ -96,7 +96,9 @@ refuses to install into a directory that isn't root-owned.
 
 ### 3. Point the app at the NAS
 
-Open Settings with the gear in the top right of the menu, and fill in:
+Open Settings with the gear in the top right of the menu — it opens a window
+with a source list: **General**, **Connection**, **Menu**, **Notifications**,
+**History** and **About**. Under **Connection**, fill in:
 
 - **SSH destination** — `user@host`, or an alias from `~/.ssh/config`
 - **Local hostname** — used to build each service's URL (defaults to the host
@@ -125,13 +127,24 @@ avoid.
 ## Hiding containers
 
 Right-click a container and choose **Hide from menu**. Hidden containers are
-listed under Settings → Hidden, each with a Show button.
+listed under Settings → Menu → Hidden, each with a Show button.
 
 This is stored on the Mac, keyed by container name, and changes nothing on the
 NAS. Name rather than id, because `docker compose up` gives a container a new
 id every time it's recreated — hiding by id would silently stop working. For a
 container you never want to see from anywhere, use the `ballast.hide` label
 instead.
+
+## Opening the menu from the keyboard
+
+Settings → General has a **global hotkey**, ⌥⌘B out of the box, which opens
+and closes the menu from wherever you are. Click the shortcut to record a new
+one, or the ⓧ beside it to have no shortcut at all. It's registered through
+Carbon's hot key API rather than an event monitor, so Ballast never asks for
+Accessibility access — it can't see any keystroke but this one.
+
+If another app already owns the combination, the field says so rather than
+leaving a key that quietly does nothing.
 
 ## Quitting
 
@@ -141,13 +154,18 @@ a container row.
 
 ## Display options
 
-In Settings:
+In Settings → Menu:
 
 - **Sort by** — `Status` puts anything needing attention first and sorts
   alphabetically within each status, so a healthy list still reads
   alphabetically. `Name` ignores status entirely.
 - **Hide project names** — on by default. Shows one flat list instead of
   grouping containers under their compose stack.
+
+Settings → General controls how often Ballast looks: an interval, and a
+**Refresh automatically** switch. Turned off, nothing is polled in the
+background — opening the menu or pressing the refresh button still fetches the
+current state.
 
 The magnifying glass in the menu's header reveals a filter field (Escape
 closes it). When any container is stopped, a Running / Stopped / All control
@@ -178,7 +196,8 @@ An exit is worded from when Docker says it happened. If the Mac was asleep, you
 get "Exited with code 137, 6 hours ago" rather than something that reads as
 just now. If a poll finds more than three new exits at once (a NAS reboot), they
 arrive as a single notification. To silence one container, use **Mute exit
-notifications** on its right-click menu, or the `ballast.notify=false` label.
+notifications** on its right-click menu, or the `ballast.notify=false` label;
+muted containers are listed under Settings → Menu → Muted.
 Tapping a notification doesn't do anything yet.
 
 ## Per-container configuration
@@ -222,11 +241,13 @@ Run the UI against sample data, with no NAS involved:
 ```sh
 defaults write com.bryanmaniotakis.ballast BallastUseFixtures -bool YES
 defaults write com.bryanmaniotakis.ballast BallastDebugWindow -bool YES
+defaults write com.bryanmaniotakis.ballast BallastSettingsWindow -bool YES
 ```
 
 The first drives the menu from `FixtureContainerSource`; the second also opens
 the menu's contents in an ordinary window, which is far easier to inspect and
-screenshot than a menu bar popover. Fixture mode keeps its settings in a
+screenshot than a menu bar popover; the third opens Settings at launch, for
+the same reason. Fixture mode keeps its settings in a
 separate defaults domain, so it can't disturb a real configuration. Turn both
 off with `defaults delete com.bryanmaniotakis.ballast`.
 
