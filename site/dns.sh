@@ -32,7 +32,7 @@ rec '{"type":"MX","name":"ballast.ing","content":"us2-smtp.messagingengine.com",
 rec '{"type":"CNAME","name":"fm1._domainkey","content":"fm1.ballast.ing.dkim.fmhosted.com","proxied":false,"ttl":1,"comment":"Fastmail DKIM"}'
 rec '{"type":"CNAME","name":"fm2._domainkey","content":"fm2.ballast.ing.dkim.fmhosted.com","proxied":false,"ttl":1,"comment":"Fastmail DKIM"}'
 rec '{"type":"CNAME","name":"fm3._domainkey","content":"fm3.ballast.ing.dkim.fmhosted.com","proxied":false,"ttl":1,"comment":"Fastmail DKIM"}'
-rec '{"type":"TXT","name":"ballast.ing","content":"\"v=spf1 include:spf.messagingengine.com ?all\"","ttl":1,"comment":"Fastmail SPF"}'
+rec '{"type":"TXT","name":"ballast.ing","content":"v=spf1 include:spf.messagingengine.com ?all","ttl":1,"comment":"Fastmail SPF"}'
 
 echo
 echo "Done. Check with: cf dns records list -z $Z"
