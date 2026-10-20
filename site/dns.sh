@@ -5,8 +5,12 @@
 # way of Netlify provisioning its certificate, and MX and DKIM records cannot
 # be proxied at all.
 #
-#   sh site/dns.sh --dry-run   validate without changing anything
-#   sh site/dns.sh             create the records
+#   sh site/dns.sh --dry-run   report what is missing, change nothing
+#   sh site/dns.sh             create whatever is missing
+#
+# Safe to re-run: the zone is read first and anything already there is skipped.
+# This cannot lean on the API to dedupe — Cloudflare rejects a duplicate MX but
+# will happily add a second identical TXT, and two SPF records is a permerror.
 #
 # cf needs Node 22; the PATH line below pins it so this works from any shell.
 
@@ -16,9 +20,40 @@ export PATH="$HOME/.nvm/versions/node/v22.17.0/bin:$PATH"
 Z=ballast.ing
 DRY="$1"
 
+EXISTING=$(mktemp)
+trap 'rm -f "$EXISTING"' EXIT
+cf dns records list -z "$Z" --per-page 500 > "$EXISTING"
+
+# Is this record already in the zone? Compares type, name and content, with the
+# zone suffix added to short names and the quotes Cloudflare wraps TXT values in
+# stripped, so both sides are spelled the same way.
+present() {
+  printf '%s' "$1" | python3 -I -c '
+import json, sys
+want = json.load(sys.stdin)
+have = json.load(open(sys.argv[1]))
+zone = sys.argv[2]
+
+def norm(rec):
+    name = rec["name"]
+    if not name.endswith(zone):
+        name = name + "." + zone
+    return (rec["type"], name.lower(), rec["content"].strip().strip(chr(34)).lower())
+
+sys.exit(0 if norm(want) in {norm(r) for r in have} else 1)
+' "$EXISTING" "$Z"
+}
+
 rec() {
-  echo "→ $(echo "$1" | sed -n 's/.*"type":"\([^"]*\)".*"name":"\([^"]*\)".*/\1 \2/p')"
-  cf dns records create -z "$Z" $DRY --body "$1"
+  label=$(printf '%s' "$1" | python3 -I -c 'import json,sys; r=json.load(sys.stdin); print(r["type"], r["name"])')
+  if present "$1"; then
+    echo "= $label already present"
+  elif [ -n "$DRY" ]; then
+    echo "+ $label would be created"
+  else
+    cf dns records create -z "$Z" --body "$1" > /dev/null
+    echo "+ $label created"
+  fi
 }
 
 # --- Netlify --------------------------------------------------------------
