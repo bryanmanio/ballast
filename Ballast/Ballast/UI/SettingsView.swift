@@ -1,8 +1,10 @@
 import ServiceManagement
 import SwiftUI
 
-/// Settings, laid out for the width of the menu rather than a separate
-/// window: labels sit above their fields so nothing is cramped at 340pt.
+/// Settings in the shape macOS System Settings uses: a titled group per
+/// topic, each one a card of rows with the control on the right. Explanatory
+/// copy is kept to the few places a control is genuinely ambiguous; the rest
+/// lives in tooltips.
 struct SettingsView: View {
     @Bindable var settings: AppSettings
     let store: ContainerStore
@@ -26,14 +28,16 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                nasSection
-                urlSection
-                appearanceSection
-                hiddenSection
-                behaviourSection
-                notificationsSection
-                advancedSection
+            VStack(alignment: .leading, spacing: 16) {
+                connectionGroup
+                serviceURLGroup
+                appGroup
+                menuGroup
+                notificationsGroup
+                mutedGroup
+                hiddenGroup
+                historyGroup
+                advancedGroup
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
@@ -45,180 +49,201 @@ struct SettingsView: View {
         .task { await store.refreshNotificationAuthorization() }
     }
 
-    // MARK: Sections
+    // MARK: Groups
 
-    private var nasSection: some View {
-        SettingsSection("NAS") {
-            LabelledField("SSH destination", text: $settings.sshDestination, prompt: "ballast@nas.local")
-                .onSubmit { runTest() }
-
-            HStack(spacing: 6) {
-                Button("Test connection") { runTest() }
-                    .controlSize(.small)
-                    .disabled(!settings.isConfigured || isRunning)
-                if isRunning { ProgressView().controlSize(.small) }
+    private var connectionGroup: some View {
+        SettingsGroup("Connection") {
+            SettingsRow("SSH destination") {
+                RowField(text: $settings.sshDestination, prompt: "ballast@nas.local")
+                    .onSubmit { runTest() }
             }
-
-            testResult
-
-            Caption("Ballast uses your existing SSH key. It stores no password or token.")
-        }
-    }
-
-    private var urlSection: some View {
-        SettingsSection("Service URLs") {
-            LabelledField(
-                "Local hostname",
-                text: $settings.lanHost,
-                prompt: settings.effectiveLANHost.isEmpty ? "nas.local" : settings.effectiveLANHost
-            )
-            LabelledField("Remote hostname", text: $settings.remoteHost, prompt: "100.x.y.z")
-            Caption("Used to build each service's URL. The remote hostname is used whenever the local one doesn't answer, so the menu keeps working away from home.")
-        }
-    }
-
-    private var appearanceSection: some View {
-        SettingsSection("Appearance") {
-            Picker("Sort by", selection: $settings.sortOrder) {
-                ForEach(ContainerSortOrder.allCases) { order in
-                    Text(order.label).tag(order)
+            RowDivider()
+            SettingsRow("Test connection") {
+                if isRunning {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button("Test") { runTest() }
+                        .controlSize(.small)
+                        .disabled(!settings.isConfigured)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-
-            Toggle("Hide project names", isOn: $settings.hideProjectNames)
-                .help("Show one flat list instead of grouping containers under their compose stack.")
+            testResult
         }
     }
 
-    /// Only present when something is hidden, so it isn't an empty box most
-    /// of the time.
-    @ViewBuilder
-    private var hiddenSection: some View {
-        let hidden = store.hiddenContainerNames
-        if !hidden.isEmpty {
-            SettingsSection("Hidden") {
-                ForEach(hidden, id: \.self) { name in
-                    HStack(spacing: 6) {
-                        Text(name)
-                            .font(.system(size: 11))
-                            .lineLimit(1)
-                        Spacer(minLength: 4)
-                        Button {
-                            store.unhide(name)
-                        } label: {
-                            Text("Show")
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        .buttonStyle(.glass)
-                        .controlSize(.small)
-                        .help("Show \(name) in the menu again")
+    private var serviceURLGroup: some View {
+        SettingsGroup("Service URLs") {
+            SettingsRow("Local host") {
+                RowField(
+                    text: $settings.lanHost,
+                    prompt: settings.effectiveLANHost.isEmpty ? "nas.local" : settings.effectiveLANHost
+                )
+            }
+            RowDivider()
+            SettingsRow("Remote host") {
+                RowField(text: $settings.remoteHost, prompt: "100.x.y.z")
+            }
+            RowNote("Used when the local host doesn't answer.")
+            RowDivider()
+            SettingsRow(
+                "Check services respond",
+                help: "Requests each service's URL as well as reading Docker's state. Catches a container that is running but wedged, at the cost of occasional false alarms."
+            ) {
+                RowToggle(isOn: $settings.probeEnabled)
+            }
+        }
+    }
+
+    private var appGroup: some View {
+        SettingsGroup("App") {
+            SettingsRow("Launch at login") {
+                RowToggle(isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, enabled in setLaunchAtLogin(enabled) }
+            }
+            if let launchAtLoginError {
+                RowNote(launchAtLoginError, tint: .orange)
+            }
+            RowDivider()
+            SettingsRow("Refresh every") {
+                Picker("", selection: $settings.refreshInterval) {
+                    Text("10 seconds").tag(10.0)
+                    Text("30 seconds").tag(30.0)
+                    Text("1 minute").tag(60.0)
+                    Text("5 minutes").tag(300.0)
+                }
+                .rowPicker()
+            }
+        }
+    }
+
+    private var menuGroup: some View {
+        SettingsGroup("Menu") {
+            SettingsRow("Sort by") {
+                Picker("", selection: $settings.sortOrder) {
+                    ForEach(ContainerSortOrder.allCases) { order in
+                        Text(order.label).tag(order)
                     }
                 }
-                Caption("Hidden with “Hide from menu” on a container's right-click menu. This is stored on this Mac; it doesn't change anything on the NAS.")
+                .rowPicker()
+            }
+            RowDivider()
+            SettingsRow("Group by project", help: "Group containers under their compose stack instead of one flat list.") {
+                RowToggle(isOn: Binding(
+                    get: { !settings.hideProjectNames },
+                    set: { settings.hideProjectNames = !$0 }
+                ))
             }
         }
     }
 
-    private var behaviourSection: some View {
-        SettingsSection("Behaviour") {
-            Picker("Refresh every", selection: $settings.refreshInterval) {
-                Text("10 seconds").tag(10.0)
-                Text("30 seconds").tag(30.0)
-                Text("1 minute").tag(60.0)
-                Text("5 minutes").tag(300.0)
+    private var notificationsGroup: some View {
+        SettingsGroup("Notifications") {
+            SettingsRow(
+                "Unexpected exits",
+                help: "Only a non-zero exit code or an out-of-memory kill notifies. Clean exits and anything you stop yourself stay quiet."
+            ) {
+                RowToggle(isOn: $settings.notifyOnUnexpectedExit)
+                    .onChange(of: settings.notifyOnUnexpectedExit) { _, enabled in
+                        if enabled { enableNotifications() } else { notificationsBlocked = false }
+                    }
             }
-
-            Toggle("Check that services respond", isOn: $settings.probeEnabled)
-                .help("Requests each service's URL as well as reading Docker's state. Catches a container that is running but wedged, at the cost of occasional false alarms.")
-
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, enabled in setLaunchAtLogin(enabled) }
-
-            if let launchAtLoginError {
-                Text(launchAtLoginError)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var notificationsSection: some View {
-        SettingsSection("Notifications") {
-            Toggle("Notify when a container exits unexpectedly", isOn: $settings.notifyOnUnexpectedExit)
-                .onChange(of: settings.notifyOnUnexpectedExit) { _, enabled in
-                    if enabled { enableNotifications() } else { notificationsBlocked = false }
-                }
-
             if notificationsBlocked
                 || (settings.notifyOnUnexpectedExit && store.notificationAuthorization == .denied) {
-                Text("macOS is blocking notifications from Ballast. Allow them in System Settings → Notifications.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
+                RowNote("Blocked by macOS. Allow them in System Settings → Notifications.", tint: .orange)
             }
-
-            Caption("Only a non-zero exit code or an out-of-memory kill notifies. A clean exit, a container Docker already restarted, and anything you stop from Ballast are recorded in History but stay quiet.")
-
-            let muted = store.mutedContainerNames
-            ForEach(muted, id: \.self) { name in
-                HStack(spacing: 6) {
-                    Text(name)
-                        .font(.system(size: 11))
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    Button {
-                        store.unmute(name)
-                    } label: {
-                        Text("Unmute")
-                            .font(.system(size: 10, weight: .medium))
-                    }
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-                    .help("Notify about \(name) again")
-                }
-            }
-            if !muted.isEmpty {
-                Caption("Muted with “Mute exit notifications” on a container's right-click menu. A container can also opt out from its compose file with the ballast.notify=false label.")
-            }
-
-            HStack(spacing: 6) {
-                Button("Send a test notification") { sendTestNotification() }
-                    .controlSize(.small)
-                    .help("Posts a sample notification so you can check they arrive without waiting for something to break")
-
+            RowDivider()
+            SettingsRow("Test notification") {
                 if testNotificationSent {
                     Text("Sent")
-                        .font(.system(size: 10))
+                        .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
                         .transition(.opacity)
                 }
+                Button("Send") { sendTestNotification() }
+                    .controlSize(.small)
             }
-
-            Button("Clear history") { store.clearHistory() }
-                .controlSize(.small)
-                .disabled(store.history.isEmpty)
         }
     }
 
-    private var advancedSection: some View {
-        DisclosureGroup(isExpanded: $showAdvanced) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelledField("Agent path", text: $settings.agentPath, prompt: SSHContainerSource.defaultAgentPath)
-                HStack {
-                    Text("Reachability port")
-                        .font(.system(size: 11))
-                    Spacer()
-                    TextField("", value: $settings.reachabilityPort, format: .number)
-                        .frame(width: 60)
-                        .multilineTextAlignment(.trailing)
+    /// Only present when something is muted, so it isn't an empty box most
+    /// of the time.
+    @ViewBuilder
+    private var mutedGroup: some View {
+        let muted = store.mutedContainerNames
+        if !muted.isEmpty {
+            SettingsGroup("Muted") {
+                ForEach(Array(muted.enumerated()), id: \.element) { index, name in
+                    if index > 0 { RowDivider() }
+                    SettingsRow(name) {
+                        Button("Unmute") { store.unmute(name) }
+                            .controlSize(.small)
+                    }
                 }
             }
-            .padding(.top, 6)
-        } label: {
-            SectionLabel("Advanced")
+        }
+    }
+
+    @ViewBuilder
+    private var hiddenGroup: some View {
+        let hidden = store.hiddenContainerNames
+        if !hidden.isEmpty {
+            SettingsGroup("Hidden") {
+                ForEach(Array(hidden.enumerated()), id: \.element) { index, name in
+                    if index > 0 { RowDivider() }
+                    SettingsRow(name) {
+                        Button("Show") { store.unhide(name) }
+                            .controlSize(.small)
+                    }
+                }
+            }
+        }
+    }
+
+    private var historyGroup: some View {
+        SettingsGroup("History") {
+            SettingsRow("Recorded events") {
+                Text("\(store.history.count)")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Button("Clear") { store.clearHistory() }
+                    .controlSize(.small)
+                    .disabled(store.history.isEmpty)
+            }
+        }
+    }
+
+    private var advancedGroup: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { showAdvanced.toggle() }
+            } label: {
+                HStack(spacing: 3) {
+                    GroupLabel("Advanced")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(showAdvanced ? 90 : 0))
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.pressable)
+
+            if showAdvanced {
+                SettingsCard {
+                    SettingsRow("Agent path") {
+                        RowField(text: $settings.agentPath, prompt: SSHContainerSource.defaultAgentPath, width: 170)
+                    }
+                    RowDivider()
+                    SettingsRow("Reachability port") {
+                        TextField("", value: $settings.reachabilityPort, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                    }
+                }
+            }
         }
     }
 
@@ -235,27 +260,9 @@ struct SettingsView: View {
         case .idle, .running:
             EmptyView()
         case .success(let check):
-            HStack(alignment: .top, spacing: 5) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.green)
-                Text("Connected — Docker \(check.dockerServerVersion)")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-            }
+            RowNote("Connected — Docker \(check.dockerServerVersion)", symbol: "checkmark.circle.fill", tint: .green)
         case .failure(let error):
-            HStack(alignment: .top, spacing: 5) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.red)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(error.title).font(.system(size: 10.5, weight: .medium))
-                    Text(error.hint)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            RowNote(error.title, symbol: "xmark.circle.fill", tint: .red, help: error.hint)
         }
     }
 
@@ -316,54 +323,20 @@ struct SettingsView: View {
 
 // MARK: - Building blocks
 
-private struct SectionLabel: View {
+/// The title above a card.
+private struct GroupLabel: View {
     let text: String
     init(_ text: String) { self.text = text }
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .font(.system(size: 11, weight: .semibold))
     }
 }
 
-private struct Caption: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 10))
-            .foregroundStyle(.tertiary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-/// Label above field, so a long value isn't squeezed into half the width.
-private struct LabelledField: View {
-    let title: String
-    @Binding var text: String
-    let prompt: String
-
-    init(_ title: String, text: Binding<String>, prompt: String) {
-        self.title = title
-        self._text = text
-        self.prompt = prompt
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.system(size: 11))
-            TextField("", text: $text, prompt: Text(prompt))
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 11))
-        }
-    }
-}
-
-/// A titled group of controls. Stands in for Form's Section, which needs a
-/// List or Form around it and reads badly at the width of a menu.
-private struct SettingsSection<Content: View>: View {
+/// A group of related rows under a title, the unit System Settings is built
+/// from.
+private struct SettingsGroup<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
 
@@ -373,10 +346,127 @@ private struct SettingsSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            SectionLabel(title)
-            content
+        VStack(alignment: .leading, spacing: 6) {
+            GroupLabel(title)
+            SettingsCard { content }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SettingsCard<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(spacing: 0) { content }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.primary.opacity(0.06))
+            }
+    }
+}
+
+/// Label on the left, control on the right, on one line.
+private struct SettingsRow<Trailing: View>: View {
+    let title: String
+    var help: String?
+    @ViewBuilder var trailing: Trailing
+
+    init(_ title: String, help: String? = nil, @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self.help = help
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 12))
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            trailing
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(minHeight: 30)
+        .help(help ?? "")
+    }
+}
+
+/// Secondary copy that belongs to the row above it, so it stays inside the
+/// card rather than floating between groups.
+private struct RowNote: View {
+    let text: String
+    var symbol: String?
+    var tint: Color?
+    var help: String?
+
+    init(_ text: String, symbol: String? = nil, tint: Color? = nil, help: String? = nil) {
+        self.text = text
+        self.symbol = symbol
+        self.tint = tint
+        self.help = help
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.system(size: 9))
+                    .foregroundStyle(tint ?? .secondary)
+            }
+            Text(text)
+                .font(.system(size: 10.5))
+                .foregroundStyle(symbol == nil ? (tint ?? Color.secondary) : Color.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 8)
+        .padding(.top, -2)
+        .help(help ?? "")
+    }
+}
+
+/// Inset on the leading edge, the way a grouped list separates its rows.
+private struct RowDivider: View {
+    var body: some View {
+        Divider().padding(.leading, 10)
+    }
+}
+
+private struct RowToggle: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Toggle("", isOn: $isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+    }
+}
+
+private struct RowField: View {
+    @Binding var text: String
+    let prompt: String
+    var width: CGFloat = 160
+
+    var body: some View {
+        TextField("", text: $text, prompt: Text(prompt))
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 11))
+            .frame(width: width)
+    }
+}
+
+private extension View {
+    /// A popup sized to its selection, as the right-hand control of a row.
+    func rowPicker() -> some View {
+        self.pickerStyle(.menu)
+            .labelsHidden()
+            .controlSize(.small)
+            .font(.system(size: 11))
+            .fixedSize()
     }
 }
