@@ -27,6 +27,7 @@ struct MenuContentView: View {
     /// collapses to nothing unless given an explicit height.
     @State private var contentHeight: CGFloat = 0
     @State private var showingSettings = false
+    @State private var showingHistory = false
     @State private var showingSearch = false
     @State private var scope: ContainerScope = .running
     @FocusState private var searchFocused: Bool
@@ -39,9 +40,13 @@ struct MenuContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             if showingSettings {
-                settingsHeader
+                paneHeader("Settings") { showingSettings = false }
                 Divider()
                 SettingsView(settings: settings, store: store)
+            } else if showingHistory {
+                paneHeader("History") { showingHistory = false }
+                Divider()
+                HistoryView(store: store)
             } else {
                 listBody
             }
@@ -89,21 +94,21 @@ struct MenuContentView: View {
         }
     }
 
-    /// Header for the settings pane, with the way back.
-    private var settingsHeader: some View {
+    /// Header for a pane that replaces the list, with the way back.
+    private func paneHeader(_ title: String, close: @escaping () -> Void) -> some View {
         HStack(spacing: 5) {
             Button {
-                withAnimation(.easeInOut(duration: 0.15)) { showingSettings = false }
+                withAnimation(.easeInOut(duration: 0.15), close)
             } label: {
                 HStack(spacing: 3) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 10, weight: .semibold))
-                    Text("Settings")
+                    Text(title)
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .help("Back to the container list")
 
             Spacer()
@@ -116,12 +121,16 @@ struct MenuContentView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text("Ballast")
-                .font(.system(size: 13, weight: .semibold))
+            // Baseline-aligned so the smaller summary sits on the same line
+            // as the title rather than floating at its centre.
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("Ballast")
+                    .font(.system(size: 13, weight: .semibold))
 
-            Text(summary)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                Text(summary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
 
@@ -147,6 +156,10 @@ struct MenuContentView: View {
                     }
                     .disabled(store.isRefreshing)
                     .opacity(store.isRefreshing ? 0.4 : 1)
+
+                    HeaderButton(symbol: "clock.arrow.circlepath", help: "Downtime history") {
+                        withAnimation(.easeInOut(duration: 0.15)) { showingHistory = true }
+                    }
 
                     HeaderButton(symbol: "gearshape", help: "Settings") {
                         withAnimation(.easeInOut(duration: 0.15)) { showingSettings = true }
@@ -177,9 +190,16 @@ struct MenuContentView: View {
                 }
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 10))
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 10))
+                        // The glyph stays small, but the target doesn't: 10pt
+                        // of hittable area is a dart throw with a mouse.
+                        // Nothing sits beside it, so the larger shape can't
+                        // steal a click from another control.
+                        .frame(width: 18, height: 18)
+                        .contentShape(.circle)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .foregroundStyle(.secondary)
             }
         }
@@ -187,6 +207,7 @@ struct MenuContentView: View {
         .padding(.vertical, 5)
         .glassEffect(.regular, in: .capsule)
         .padding(.horizontal, 10)
+        .padding(.top, 12)
         .padding(.bottom, 6)
     }
 
@@ -195,7 +216,7 @@ struct MenuContentView: View {
     private var scopePicker: some View {
         ScopeControl(scope: $scope)
             .padding(.horizontal, 10)
-            .padding(.top, 8)
+            .padding(.top, showingSearch ? 6 : 12)
             .padding(.bottom, 6)
     }
 
@@ -267,11 +288,20 @@ struct MenuContentView: View {
             assessment: store.assessment(for: container),
             endpoints: store.allEndpoints(for: container),
             isBusy: store.isBusy(container),
+            lastExit: store.lastExit(for: container.name),
+            isMuted: store.mutedContainerNames.contains(container.name),
             perform: { action in
                 Task { await store.perform(action, on: container) }
             },
             onHide: {
                 withAnimation(.easeInOut(duration: 0.15)) { store.hide(container) }
+            },
+            onToggleMute: {
+                if store.mutedContainerNames.contains(container.name) {
+                    store.unmute(container.name)
+                } else {
+                    store.mute(container)
+                }
             }
         )
     }
@@ -341,7 +371,7 @@ private struct ScopeControl: View {
                 .padding(.vertical, 4)
                 .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .background {
             if isSelected {
                 Capsule()
@@ -371,14 +401,16 @@ private struct HeaderButton: View {
                 .frame(width: 20, height: 20)
                 .contentShape(.circle)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .foregroundStyle(isActive ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-        .glassEffect(isActive ? .regular.tint(.accentColor) : .regular.interactive(), in: .circle)
+        // Interactive in both states: an active button that stops responding
+        // to the pointer reads as disabled.
+        .glassEffect(isActive ? .regular.tint(.accentColor).interactive() : .regular.interactive(), in: .circle)
         .help(help)
     }
 }
 
-private struct SectionHeader: View {
+struct SectionHeader: View {
     let title: String
     let count: Int
 
@@ -449,7 +481,7 @@ private struct NoticeBanner: View {
     }
 }
 
-private struct EmptyStateView: View {
+struct EmptyStateView: View {
     let symbol: String
     let title: String
     let message: String

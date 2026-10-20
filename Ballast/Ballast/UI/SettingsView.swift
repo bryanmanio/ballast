@@ -11,6 +11,12 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchAtLoginError: String?
     @State private var showAdvanced = false
+    /// Set when the user turns notifications on and macOS says no, so the
+    /// reason is still on screen after the toggle has switched itself back off.
+    @State private var notificationsBlocked = false
+    /// Confirms the test notification went out, for the case where macOS
+    /// shows the banner somewhere the user isn't looking.
+    @State private var testNotificationSent = false
 
     enum TestState {
         case idle, running
@@ -26,6 +32,7 @@ struct SettingsView: View {
                 appearanceSection
                 hiddenSection
                 behaviourSection
+                notificationsSection
                 advancedSection
             }
             .padding(.horizontal, 12)
@@ -33,6 +40,7 @@ struct SettingsView: View {
         }
         .frame(maxHeight: 460)
         .scrollIndicators(.never)
+        .task { await store.refreshNotificationAuthorization() }
     }
 
     // MARK: Sections
@@ -135,6 +143,64 @@ struct SettingsView: View {
         }
     }
 
+    private var notificationsSection: some View {
+        SettingsSection("Notifications") {
+            Toggle("Notify when a container exits unexpectedly", isOn: $settings.notifyOnUnexpectedExit)
+                .onChange(of: settings.notifyOnUnexpectedExit) { _, enabled in
+                    if enabled { enableNotifications() } else { notificationsBlocked = false }
+                }
+
+            if notificationsBlocked
+                || (settings.notifyOnUnexpectedExit && store.notificationAuthorization == .denied) {
+                Text("macOS is blocking notifications from Ballast. Allow them in System Settings → Notifications.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Caption("Only a non-zero exit code or an out-of-memory kill notifies. A clean exit, a container Docker already restarted, and anything you stop from Ballast are recorded in History but stay quiet.")
+
+            let muted = store.mutedContainerNames
+            ForEach(muted, id: \.self) { name in
+                HStack(spacing: 6) {
+                    Text(name)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Button {
+                        store.unmute(name)
+                    } label: {
+                        Text("Unmute")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
+                    .help("Notify about \(name) again")
+                }
+            }
+            if !muted.isEmpty {
+                Caption("Muted with “Mute exit notifications” on a container's right-click menu. A container can also opt out from its compose file with the ballast.notify=false label.")
+            }
+
+            HStack(spacing: 6) {
+                Button("Send a test notification") { sendTestNotification() }
+                    .controlSize(.small)
+                    .help("Posts a sample notification so you can check they arrive without waiting for something to break")
+
+                if testNotificationSent {
+                    Text("Sent")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .transition(.opacity)
+                }
+            }
+
+            Button("Clear history") { store.clearHistory() }
+                .controlSize(.small)
+                .disabled(store.history.isEmpty)
+        }
+    }
+
     private var advancedSection: some View {
         DisclosureGroup(isExpanded: $showAdvanced) {
             VStack(alignment: .leading, spacing: 10) {
@@ -201,6 +267,31 @@ struct SettingsView: View {
             case .failure(let error):
                 test = .failure(error)
             }
+        }
+    }
+
+    /// Asks for permission if it hasn't been granted yet, so this doubles as
+    /// the way to trigger the macOS prompt.
+    private func sendTestNotification() {
+        Task {
+            let sent = await store.sendTestNotification()
+            withAnimation(.easeInOut(duration: 0.15)) {
+                testNotificationSent = sent
+                notificationsBlocked = !sent
+            }
+            guard sent else { return }
+            try? await Task.sleep(for: .seconds(3))
+            withAnimation(.easeInOut(duration: 0.15)) { testNotificationSent = false }
+        }
+    }
+
+    private func enableNotifications() {
+        notificationsBlocked = false
+        Task {
+            if await store.requestNotificationAuthorization() { return }
+            // Left on, the toggle would promise notifications that can't arrive.
+            notificationsBlocked = true
+            settings.notifyOnUnexpectedExit = false
         }
     }
 

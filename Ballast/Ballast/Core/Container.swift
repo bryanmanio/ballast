@@ -81,6 +81,8 @@ struct Container: Identifiable, Hashable, Sendable {
     var probeOptOut: Bool { labels["ballast.probe"]?.lowercased() == "false" }
     /// `ballast.hide=true` keeps a container out of the menu entirely.
     var isHidden: Bool { labels["ballast.hide"]?.lowercased() == "true" }
+    /// `ballast.notify=false` records its exits in history but never notifies.
+    var notifyOptOut: Bool { labels["ballast.notify"]?.lowercased() == "false" }
 
     var displayName: String {
         labels["ballast.name"] ?? name

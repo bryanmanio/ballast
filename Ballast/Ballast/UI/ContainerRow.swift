@@ -6,8 +6,11 @@ struct ContainerRow: View {
     let assessment: StatusAssessment
     let endpoints: [ServiceEndpoint]
     var isBusy = false
+    var lastExit: DowntimeEvent?
+    var isMuted = false
     var perform: (ContainerAction) -> Void = { _ in }
     var onHide: () -> Void = {}
+    var onToggleMute: () -> Void = {}
 
     @State private var isHovering = false
     @Environment(\.openURL) private var openURL
@@ -84,6 +87,10 @@ struct ContainerRow: View {
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isHovering && isOpenable ? Color.primary.opacity(0.08) : .clear)
+                    // Only the highlight fades. The controls it reveals stay
+                    // instant, so the row never feels like it trails the
+                    // cursor — and scrubbing down the list doesn't strobe.
+                    .animation(.easeInOut(duration: 0.12), value: isHovering)
             )
             .contentShape(.rect)
         }
@@ -98,6 +105,7 @@ struct ContainerRow: View {
         if let version = container.version { lines.append("Version \(version)") }
         if let url = primary?.url { lines.append(url.absoluteString) }
         if container.restartCount > 0 { lines.append("\(container.restartCount) restarts") }
+        if let lastExit { lines.append("Last exit: \(lastExit.summary), \(lastExit.relativeTime())") }
         return lines.joined(separator: "\n")
     }
 
@@ -124,6 +132,7 @@ struct ContainerRow: View {
         }
         Divider()
         Button("Hide from menu") { onHide() }
+        Button(isMuted ? "Unmute exit notifications" : "Mute exit notifications") { onToggleMute() }
         Divider()
         Button("Copy container name") { copy(container.name) }
         Button("Copy image") { copy(container.image) }
@@ -157,7 +166,7 @@ private struct RowIconButton: View {
                 .frame(width: 18, height: 18)
                 .contentShape(.circle)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .foregroundStyle(isHovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
         .glassEffect(.regular.interactive(), in: .circle)
         .onHover { isHovering = $0 }

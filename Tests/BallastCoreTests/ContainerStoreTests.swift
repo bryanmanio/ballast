@@ -3,7 +3,7 @@ import Testing
 @testable import BallastCore
 
 /// A source that returns whatever the test tells it to, including failures.
-private final class StubSource: ContainerSource, @unchecked Sendable {
+final class StubSource: ContainerSource, @unchecked Sendable {
     var result: Result<AgentListOutput, BallastError>
     var actionError: BallastError?
     private(set) var fetchCount = 0
@@ -30,28 +30,34 @@ private final class StubSource: ContainerSource, @unchecked Sendable {
     }
 }
 
-private struct StubProbe: ServiceProbing {
+struct StubProbe: ServiceProbing {
     var outcome: ProbeOutcome = .responded(statusCode: 200)
     func probe(_ targets: [String: URL]) async -> [String: ProbeOutcome] {
         targets.mapValues { _ in outcome }
     }
 }
 
-private func makeContainer(
+func makeContainer(
     _ name: String,
+    id: String? = nil,
     state: DockerState = .running,
     health: HealthState = .undefined,
+    exitCode: Int = 0,
+    oomKilled: Bool = false,
+    restartCount: Int = 0,
     ports: [Int] = [],
-    labels: [String: String] = [:]
+    labels: [String: String] = [:],
+    startedAt: Date? = nil,
+    finishedAt: Date? = nil
 ) -> Container {
     Container(
-        id: name, name: name, state: state, health: health, exitCode: 0,
-        oomKilled: false, restartCount: 0, image: "\(name):latest",
+        id: id ?? name, name: name, state: state, health: health, exitCode: exitCode,
+        oomKilled: oomKilled, restartCount: restartCount, image: "\(name):latest",
         publishedPorts: ports.map {
             PortBinding(containerPort: $0, transport: "tcp", hostIP: "0.0.0.0", hostPort: $0)
         },
         exposedPorts: [], networkMode: "bridge", labels: labels,
-        startedAt: nil, finishedAt: nil
+        startedAt: startedAt, finishedAt: finishedAt
     )
 }
 

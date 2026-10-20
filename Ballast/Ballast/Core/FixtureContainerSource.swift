@@ -5,6 +5,19 @@ import Foundation
 /// `-BallastUseFixtures YES`.
 struct FixtureContainerSource: ContainerSource {
     var delay: Duration = .milliseconds(120)
+    /// Launch with `-BallastSimulateCrash YES` to have one container fall
+    /// over and come back on a timer, so the downtime pipeline — detection,
+    /// history, notification — can be watched end to end without waiting for
+    /// something real to break.
+    var simulatesCrash = false
+
+    /// Phases are measured from the first fetch rather than counted, because
+    /// the store builds a fresh source for every poll.
+    private static let clock = FixtureClock()
+
+    /// The container that misbehaves. Picked because it publishes a port and
+    /// sits mid-list, so its row is easy to watch.
+    private static let crashingContainer = "jellyfin"
 
     func check() async throws -> AgentCheck {
         AgentCheck(
@@ -24,9 +37,37 @@ struct FixtureContainerSource: ContainerSource {
         try? await Task.sleep(for: delay)
         return AgentListOutput(
             protocolVersion: 1,
-            containers: Self.containers,
+            containers: simulatesCrash ? Self.crashing(at: Self.clock.elapsed()) : Self.containers,
             warnings: ["skipped 1 of 13 containers: Error: No such object: 3f8a1c"]
         )
+    }
+
+    /// Up, then killed, then back on its own — the shape of a real crash and
+    /// restart, slow enough to watch and fast enough to not wait around.
+    ///
+    /// The first phase matters: the detector needs one poll of the container
+    /// being up before an exit is a transition rather than the starting state.
+    private static func crashing(at elapsed: TimeInterval) -> [Container] {
+        guard elapsed >= 15 else { return containers }
+
+        return containers.map { container in
+            guard container.name == crashingContainer else { return container }
+            var crashed = container
+
+            if elapsed < 75 {
+                crashed.state = .exited
+                crashed.exitCode = 137
+                crashed.finishedAt = Date(timeIntervalSinceNow: -(elapsed - 15))
+                crashed.startedAt = nil
+            } else {
+                // Docker's restart policy got it back: still up, but the
+                // restart count has moved, which is the crash-loop signal.
+                crashed.restartCount = container.restartCount + 1
+                crashed.startedAt = Date(timeIntervalSinceNow: -(elapsed - 75))
+                crashed.finishedAt = Date(timeIntervalSinceNow: -(elapsed - 15))
+            }
+            return crashed
+        }
     }
 
     static let containers: [Container] = [
@@ -109,6 +150,24 @@ struct FixtureContainerSource: ContainerSource {
         ),
     ]
 
+    /// A believable few days of history, so the History pane has something
+    /// to show: an OOM kill, a crash loop, a clean stop, and a recovery.
+    static func sampleHistory(now: Date = Date()) -> [DowntimeEvent] {
+        func ago(hours: Double) -> Date { now.addingTimeInterval(-hours * 3_600) }
+        return [
+            DowntimeEvent(containerName: "transmission", kind: .exited, at: ago(hours: 11),
+                          exitCode: 137, oomKilled: true, image: "linuxserver/transmission:latest"),
+            DowntimeEvent(containerName: "uptime-kuma", kind: .crashRestarted, at: ago(hours: 3),
+                          exitCode: 1, image: "louislam/uptime-kuma:1"),
+            DowntimeEvent(containerName: "immich-postgres", kind: .exited, at: ago(hours: 30),
+                          exitCode: 1, image: "tensorchord/pgvecto-rs:pg14-v0.2.0"),
+            DowntimeEvent(containerName: "immich-postgres", kind: .started, at: ago(hours: 29.9),
+                          image: "tensorchord/pgvecto-rs:pg14-v0.2.0"),
+            DowntimeEvent(containerName: "scrutiny", kind: .exited, at: ago(hours: 72),
+                          exitCode: 0, image: "analogj/scrutiny:master-omnibus", userInitiated: true),
+        ]
+    }
+
     private static func binding(_ port: Int, ip: String = "0.0.0.0", transport: String = "tcp") -> PortBinding {
         PortBinding(containerPort: port, transport: transport, hostIP: ip, hostPort: port)
     }
@@ -140,6 +199,23 @@ struct FixtureContainerSource: ContainerSource {
             labels: labels, startedAt: started,
             finishedAt: finishedHoursAgo.map { Date(timeIntervalSinceNow: -Double($0) * 3_600) }
         )
+    }
+}
+
+/// Marks when fixture mode started, so a simulated crash can be timed from
+/// it. A reference type because the source itself is rebuilt every poll.
+private final class FixtureClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var start: Date?
+
+    func elapsed() -> TimeInterval {
+        lock.withLock {
+            guard let start else {
+                start = Date()
+                return 0
+            }
+            return Date().timeIntervalSince(start)
+        }
     }
 }
 

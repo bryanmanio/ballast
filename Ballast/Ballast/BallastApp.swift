@@ -2,8 +2,12 @@ import SwiftUI
 
 @main
 struct BallastApp: App {
+    @Environment(\.openWindow) private var openWindow
     @State private var settings: AppSettings
     @State private var store: ContainerStore
+    /// Owns the right-click menu on the status item. Held here so it lives as
+    /// long as the app does.
+    @State private var contextMenu = MenuBarContextMenu()
     /// Renders the menu's contents in an ordinary window as well, so the
     /// layout can be inspected and screenshotted without fighting the menu
     /// bar. Enable with `-BallastDebugWindow YES`.
@@ -28,18 +32,31 @@ struct BallastApp: App {
             if settings.lanHost.isEmpty { settings.lanHost = "nas.local" }
         }
 
+        // Fixture mode only: makes one container crash and recover on a
+        // timer, so notifications and history can be checked end to end.
+        let simulateCrash = UserDefaults.standard.bool(forKey: "BallastSimulateCrash")
+
         let makeSource: @MainActor @Sendable (AppSettings) -> ContainerSource
         if useFixtures {
-            makeSource = { _ in FixtureContainerSource() }
+            makeSource = { _ in FixtureContainerSource(simulatesCrash: simulateCrash) }
         } else {
             makeSource = { settings in
                 SSHContainerSource(destination: settings.sshDestination, agentPath: settings.agentPath)
             }
         }
 
+        // Fixture mode logs to its own file, for the same reason it has its
+        // own defaults domain.
+        let historyStore = FileDowntimeHistoryStore(url: FileDowntimeHistoryStore.defaultURL(fixtures: useFixtures))
+        if useFixtures && historyStore.load().isEmpty {
+            historyStore.append(FixtureContainerSource.sampleHistory())
+        }
+
         let store = ContainerStore(
             settings: settings,
             probe: useFixtures ? FixtureProbe() : ServiceProbe(),
+            historyStore: historyStore,
+            notifier: UserNotificationsExitNotifier(),
             requiresSSHConfiguration: !useFixtures,
             makeSource: makeSource
         )
@@ -54,8 +71,11 @@ struct BallastApp: App {
             MenuContentView(store: store, settings: settings)
         } label: {
             MenuBarLabel(status: store.overallStatus, problemCount: store.problemCount)
-                .contextMenu {
-                    Button("Quit Ballast") { NSApplication.shared.terminate(nil) }
+                // Opening a window is something only SwiftUI can do, so the
+                // menu is handed the action rather than the other way round.
+                .onAppear {
+                    contextMenu.openSettings = { openWindow(id: "settings") }
+                    contextMenu.install()
                 }
                 // Polling is driven from the label, not the menu's contents:
                 // with the window style those contents aren't created until
@@ -66,6 +86,20 @@ struct BallastApp: App {
         // The window style is what allows a scrollable, grouped list with
         // per-row controls; the default menu style can't host one.
         .menuBarExtraStyle(.window)
+
+        // The same settings, in a window, for people who right-click the
+        // menu bar icon instead of opening the menu. Both paths render the
+        // one `SettingsView`, so they can't drift apart.
+        Window("Ballast Settings", id: "settings") {
+            SettingsView(settings: settings, store: store)
+                // Matches the menu's width, so the layout it was designed
+                // for — labels above fields — still holds here.
+                .frame(width: 340)
+                .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .defaultSize(width: 340, height: 520)
+        .windowResizability(.contentSize)
+        .defaultLaunchBehavior(.suppressed)
 
         // Always declared so the scene graph has one concrete shape; only
         // presented at launch when the debug flag is set.

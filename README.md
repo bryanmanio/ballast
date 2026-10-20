@@ -154,6 +154,33 @@ closes it). When any container is stopped, a Running / Stopped / All control
 appears so stopped containers are one click away rather than a scroll to the
 bottom.
 
+## Downtime history and notifications
+
+Ballast compares each poll with the last successful one, so a container that
+crashed at 03:00 and was restarted by Docker no longer leaves no trace. The
+clock-with-arrow button in the header opens **History**: exits, crash-restarts
+and starts, newest first and grouped by day, with "down for 4m" where both the
+exit and the next start were seen. A container's tooltip also shows its last
+exit. The log is a JSON file in `~/Library/Application Support/Ballast`, capped
+at 200 events and 30 days.
+
+A notification fires only for an exit with a **non-zero code or an
+out-of-memory kill**, and only once you turn it on in Settings → Notifications
+(macOS asks for permission then, not at launch). These are recorded but never
+notify:
+
+- a clean `exit 0`
+- a container Docker's restart policy already brought back between two polls
+- anything you stop, start or restart from Ballast's own menu — `docker stop`
+  can end in a SIGKILL (exit 137) that would otherwise look like a crash
+
+An exit is worded from when Docker says it happened. If the Mac was asleep, you
+get "Exited with code 137, 6 hours ago" rather than something that reads as
+just now. If a poll finds more than three new exits at once (a NAS reboot), they
+arrive as a single notification. To silence one container, use **Mute exit
+notifications** on its right-click menu, or the `ballast.notify=false` label.
+Tapping a notification doesn't do anything yet.
+
 ## Per-container configuration
 
 Labels in your compose files, so nothing has to be configured on the Mac:
@@ -168,6 +195,7 @@ Labels in your compose files, so nothing has to be configured on the Mac:
 | `ballast.group` | Group with other containers (compose stacks group automatically) |
 | `ballast.probe` | `false` to skip the HTTP check |
 | `ballast.hide` | `true` to keep it out of the menu |
+| `ballast.notify` | `false` to never notify about its exits (still recorded in History) |
 
 Without any labels, Ballast uses the container's published ports, preferring
 ones that look like web UIs and ignoring loopback-only bindings, which aren't
@@ -205,7 +233,7 @@ off with `defaults delete com.bryanmaniotakis.ballast`.
 ### Layout
 
 - `Ballast/Ballast/Core` — all logic: transport, parsing, URL resolution,
-  status assessment. No SwiftUI.
+  status assessment, downtime detection and history. No SwiftUI.
 - `Ballast/Ballast/UI` — the menu, rows, settings.
 - `nas/` — the agent script and its installer.
 - `Tests/` — unit tests over `Core`.
@@ -224,8 +252,6 @@ client stamps metadata onto build products that makes codesign reject them.
 
 Deliberately out of the first version, with the architecture left open for them:
 
-- Restart / start / stop from the menu
-- Downtime history and notifications when a container exits unexpectedly
 - Log viewer
 - Real-time Docker events instead of polling, via
   `docker system dial-stdio` — `ContainerSource` exists as a protocol so this
