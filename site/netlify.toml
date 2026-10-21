@@ -1,0 +1,34 @@
+# Deployed from this directory, so publish is "." — set Netlify's base
+# directory to "site" if the repo is ever connected for git deploys.
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[redirects]]
+  from = "https://www.ballast.ing/*"
+  to = "https://ballast.ing/:splat"
+  status = 301
+  force = true
+
+# Source for the link-preview card; not a page anyone should land on.
+[[headers]]
+  for = "/og.html"
+  [headers.values]
+    X-Robots-Tag = "noindex"
