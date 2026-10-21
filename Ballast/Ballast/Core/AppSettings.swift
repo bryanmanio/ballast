@@ -53,6 +53,9 @@ final class AppSettings {
     var mutedContainers: Set<String> {
         didSet { write(mutedContainers.sorted(), .mutedContainers) }
     }
+    /// Set when the user finishes — or skips — the setup window, so it is
+    /// offered once rather than at every launch.
+    var hasCompletedOnboarding: Bool { didSet { write(hasCompletedOnboarding, .hasCompletedOnboarding) } }
 
     private let defaults: UserDefaults
 
@@ -82,6 +85,7 @@ final class AppSettings {
         hiddenContainers = Set(defaults.stringArray(forKey: Key.hiddenContainers.rawValue) ?? [])
         notifyOnUnexpectedExit = defaults.object(forKey: Key.notifyOnUnexpectedExit.rawValue) as? Bool ?? false
         mutedContainers = Set(defaults.stringArray(forKey: Key.mutedContainers.rawValue) ?? [])
+        hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding.rawValue)
     }
 
     /// ⌥⌘B, free of anything macOS claims, so the shortcut works the first
@@ -106,6 +110,7 @@ final class AppSettings {
         case refreshInterval, autoRefreshEnabled, probeEnabled, hotkey
         case hideProjectNames, sortOrder, hiddenContainers
         case notifyOnUnexpectedExit, mutedContainers
+        case hasCompletedOnboarding
     }
 
     private func write(_ value: Any, _ key: Key) {

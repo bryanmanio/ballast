@@ -55,6 +55,7 @@
 				0F580ED0AF7D4C75926B8578 /* Sources */,
 				A02034F1848A416592CC2E3B /* Frameworks */,
 				B6952A2CAE2C44B0B08A9244 /* Resources */,
+				C1A5F0E7D2B44A1E9F3C0001 /* Copy NAS agent scripts */,
 			);
 			buildRules = (
 			);
@@ -113,6 +114,33 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C1A5F0E7D2B44A1E9F3C0001 /* Copy NAS agent scripts */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../nas/ballast-agent",
+				"$(SRCROOT)/../nas/install.sh",
+				"$(SRCROOT)/../nas/install-key.sh",
+				"$(SRCROOT)/../nas/deploy.sh",
+				"$(SRCROOT)/../nas/deploy-key.sh",
+			);
+			name = "Copy NAS agent scripts";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/nas/ballast-agent",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/nas/install.sh",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/nas/install-key.sh",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/nas/deploy.sh",
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/nas/deploy-key.sh",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The setup window hands the user a path to deploy.sh, so the scripts have\n# to travel with the app rather than live only in a repo checkout. All five:\n# deploy.sh and deploy-key.sh stream their siblings, so the directory only\n# works whole.\nDEST=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/nas\"\nmkdir -p \"$DEST\"\nfor f in ballast-agent install.sh install-key.sh deploy.sh deploy-key.sh; do\n    cp -p \"$SRCROOT/../nas/$f\" \"$DEST/$f\"\n    chmod 755 \"$DEST/$f\"\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0F580ED0AF7D4C75926B8578 /* Sources */ = {
@@ -249,17 +277,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = P7BP892R7G;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bryanmaniotakis.ballast;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mediumrare.ballast;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -271,17 +303,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = P7BP892R7G;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.bryanmaniotakis.ballast;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mediumrare.ballast;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;

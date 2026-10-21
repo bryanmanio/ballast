@@ -229,7 +229,12 @@ struct MenuContentView: View {
             EmptyStateView(
                 symbol: "cable.connector",
                 title: "Connect to your NAS",
-                message: "Run nas/deploy.sh on your Mac, then add the SSH destination in Settings."
+                // Deliberately not the old "run nas/deploy.sh" line: it named
+                // a path in a repo the user may never have had. Setup now
+                // carries its own copy of that script, and its own commands.
+                message: "Ballast needs a few minutes of setup on your NAS.",
+                actionTitle: "Set up Ballast…",
+                action: openOnboarding
             )
         } else if store.containers.isEmpty {
             EmptyStateView(
@@ -281,6 +286,13 @@ struct MenuContentView: View {
             .frame(height: min(max(contentHeight, Self.minListHeight), maxListHeight))
             .scrollIndicators(.never)
         }
+    }
+
+    /// An agent app isn't frontmost when its menu bar icon is clicked, so
+    /// without this the window opens behind whatever the user was looking at.
+    private func openOnboarding() {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "onboarding")
     }
 
     private func row(for container: Container) -> some View {
@@ -486,6 +498,9 @@ struct EmptyStateView: View {
     let symbol: String
     let title: String
     let message: String
+    /// Present only when the state has something the user can do about it.
+    var actionTitle: String?
+    var action: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 5) {
@@ -499,6 +514,11 @@ struct EmptyStateView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            if let actionTitle {
+                Button(actionTitle, action: action)
+                    .controlSize(.small)
+                    .padding(.top, 3)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
