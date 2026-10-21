@@ -36,6 +36,18 @@ final class ContainerStore {
     /// Exits, crash-restarts and starts seen across polls, oldest first.
     private(set) var history: [DowntimeEvent]
     private(set) var notificationAuthorization: NotificationAuthorization = .notDetermined
+    /// Whether each container's image tag has moved on, by container id.
+    /// Containers that opt out with `ballast.updates=false` have no entry.
+    private(set) var imageUpdates: [String: ImageUpdateStatus] = [:]
+    /// When the registries were last asked.
+    private(set) var lastUpdateCheck: Date?
+    /// Why the last update check couldn't run at all — typically an agent
+    /// too old to report digests. Kept apart from `lastError`, because the
+    /// container list is fine.
+    private(set) var updateCheckError: BallastError?
+    private(set) var isCheckingForUpdates = false
+    /// The check a refresh kicked off, so tests can wait for it.
+    private(set) var updateCheckTask: Task<Void, Never>?
 
     /// How many consecutive failures we tolerate before declaring the data stale.
     private static let staleAfterFailures = 2
@@ -45,11 +57,19 @@ final class ContainerStore {
     /// grace period before killing, so the exit can land well after the click.
     private static let userActionWindow: TimeInterval = 90
 
+    /// Images change weekly at most, and Watchtower is what acts on them.
+    static let updateCheckInterval: TimeInterval = 6 * 3_600
+    /// Sooner when nothing could be asked at all — offline, or an agent that
+    /// needs redeploying — so a Mac that wakes up off the network doesn't
+    /// wait six hours to find out.
+    static let updateRetryInterval: TimeInterval = 15 * 60
+
     private let settings: AppSettings
     private let makeSource: @MainActor (AppSettings) -> ContainerSource
     private let probe: any ServiceProbing
     private let historyStore: any DowntimeHistoryStoring
     private let notifier: any ExitNotifying
+    private let registry: any ImageRegistry
     /// False when driven by fixtures, which need no SSH destination.
     private let requiresSSHConfiguration: Bool
     private var pollTask: Task<Void, Never>?
@@ -59,15 +79,34 @@ final class ContainerStore {
     private var previousSnapshot: [String: ContainerSnapshot] = [:]
     /// Container names the user has just started, stopped or restarted.
     private var recentActions: [String: Date] = [:]
+    /// What the registries said on the last full check. Kept between checks
+    /// so a container Watchtower recreates can be judged again at once,
+    /// without asking the registries again.
+    private var remoteImages: [ImageReference: Result<RemoteImage, RegistryError>] = [:]
+    /// Container ids `imageUpdates` was worked out for. A different set means
+    /// something was recreated, most likely onto a new image.
+    private var updateCheckedIDs: Set<String> = []
+    private var nextUpdateCheck = Date.distantPast
+    /// The image each container name was last seen on, so one recreated onto
+    /// a different image can be logged as updated. By name, because the
+    /// recreated container has a new id.
+    private var knownImages: [String: KnownImage] = [:]
 
-    /// The history and notifier defaults touch neither disk nor the
-    /// notification centre, so a store built without them (tests, previews)
-    /// can't write to the real log. The app passes the real ones.
+    private struct KnownImage {
+        var imageID: String
+        var version: String?
+    }
+
+    /// The history, notifier and registry defaults touch neither disk, the
+    /// notification centre nor the network, so a store built without them
+    /// (tests, previews) can't write to the real log. The app passes the
+    /// real ones.
     init(
         settings: AppSettings,
         probe: any ServiceProbing = ServiceProbe(),
         historyStore: any DowntimeHistoryStoring = InMemoryDowntimeHistoryStore(),
         notifier: any ExitNotifying = DisabledExitNotifier(),
+        registry: any ImageRegistry = DisabledImageRegistry(),
         requiresSSHConfiguration: Bool = true,
         makeSource: @MainActor @escaping (AppSettings) -> ContainerSource = { settings in
             SSHContainerSource(destination: settings.sshDestination, agentPath: settings.agentPath)
@@ -77,6 +116,7 @@ final class ContainerStore {
         self.probe = probe
         self.historyStore = historyStore
         self.notifier = notifier
+        self.registry = registry
         self.history = historyStore.load()
         self.requiresSSHConfiguration = requiresSSHConfiguration
         self.makeSource = makeSource
@@ -113,7 +153,7 @@ final class ContainerStore {
 
     /// The most recent time this container went down, for its tooltip.
     func lastExit(for name: String) -> DowntimeEvent? {
-        history.last { $0.containerName == name && $0.kind != .started }
+        history.last { $0.containerName == name && $0.isExit }
     }
 
     func clearHistory() {
@@ -232,6 +272,154 @@ final class ContainerStore {
             .count { assessment(for: $0).status >= .degraded }
     }
 
+    // MARK: - Image updates
+
+    /// Nil when update checks are off, so nothing stale is shown.
+    func updateStatus(for container: Container) -> ImageUpdateStatus? {
+        guard settings.imageUpdateChecksEnabled else { return nil }
+        return imageUpdates[container.id]
+    }
+
+    var availableUpdateCount: Int {
+        guard settings.imageUpdateChecksEnabled else { return 0 }
+        return visibleContainers.count { imageUpdates[$0.id]?.isUpdate == true }
+    }
+
+    /// Asks the registries about every image now, for the Settings button.
+    func checkForUpdates() async {
+        guard settings.imageUpdateChecksEnabled else { return }
+        await runUpdateCheck(askRegistries: true)
+    }
+
+    /// The six-hourly check, or just a fresh look at the NAS when containers
+    /// were recreated — which is what Watchtower updating one looks like.
+    ///
+    /// The second runs even with update checks off: logging an update to
+    /// history only reads the NAS, and sends nothing to a registry.
+    private func checkForUpdatesIfDue() async {
+        let due = settings.imageUpdateChecksEnabled && Date() >= nextUpdateCheck
+        let recreated = Set(containers.map(\.id)) != updateCheckedIDs
+        guard due || recreated else { return }
+        await runUpdateCheck(askRegistries: due)
+    }
+
+    /// Reads which image each container runs from the NAS, asks the
+    /// registries what each tag points at now, and compares.
+    ///
+    /// The registry is asked from the Mac rather than the NAS: the agent's
+    /// sudo grant stays limited to inspecting Docker, and nothing is pulled.
+    private func runUpdateCheck(askRegistries: Bool) async {
+        guard !isCheckingForUpdates else { return }
+        guard settings.isConfigured || !requiresSSHConfiguration else { return }
+        isCheckingForUpdates = true
+        defer { isCheckingForUpdates = false }
+
+        let images: [String: ContainerImage]
+        do {
+            images = try await makeSource(settings).images()
+            updateCheckError = nil
+        } catch {
+            updateCheckError = error as? BallastError
+                ?? .agentFailed(exitCode: -1, detail: error.localizedDescription)
+            nextUpdateCheck = Date().addingTimeInterval(Self.updateRetryInterval)
+            // Not retried on every poll: an agent too old for `images` would
+            // otherwise be asked again every 30 seconds.
+            updateCheckedIDs = Set(containers.map(\.id))
+            return
+        }
+
+        recordImageChanges(images)
+        guard settings.imageUpdateChecksEnabled else {
+            updateCheckedIDs = Set(containers.map(\.id))
+            return
+        }
+        let local = images.mapValues(\.digests)
+
+        // Shared images are asked about once, with every digest any container
+        // is running, so the version is only looked up when none of them match.
+        var wanted: [ImageReference: Set<String>] = [:]
+        for container in containers where !container.updateCheckOptOut {
+            guard let reference = ImageReference(container.image),
+                  let digests = local[container.id], !digests.isEmpty else { continue }
+            wanted[reference, default: []].formUnion(digests)
+        }
+
+        if askRegistries {
+            remoteImages = await registry.lookUp(wanted)
+            let now = Date()
+            lastUpdateCheck = now
+            let reachedAny = remoteImages.values.contains {
+                if case .failure(.network) = $0 { false } else { true }
+            }
+            nextUpdateCheck = now.addingTimeInterval(
+                reachedAny || wanted.isEmpty ? Self.updateCheckInterval : Self.updateRetryInterval
+            )
+        } else {
+            // A recreated container can be on an image that was never asked about.
+            let unasked = wanted.filter { remoteImages[$0.key] == nil }
+            if !unasked.isEmpty {
+                remoteImages.merge(await registry.lookUp(unasked)) { $1 }
+            }
+        }
+
+        var statuses: [String: ImageUpdateStatus] = [:]
+        for container in containers where !container.updateCheckOptOut {
+            guard let reference = ImageReference(container.image) else {
+                statuses[container.id] = .unavailable(reason: "pinned to a digest")
+                continue
+            }
+            // Not in the agent's answer: created since, or already gone.
+            guard let digests = local[container.id] else { continue }
+            guard !digests.isEmpty else {
+                statuses[container.id] = .unavailable(reason: "built locally, so no registry digest")
+                continue
+            }
+            switch remoteImages[reference] {
+            case .success(let remote):
+                statuses[container.id] = ImageUpdateResolver.status(
+                    localDigests: digests,
+                    remote: remote,
+                    runningVersion: container.runningImageVersion
+                )
+            case .failure(let error):
+                statuses[container.id] = .unavailable(reason: error.reason)
+            case nil:
+                continue
+            }
+        }
+        imageUpdates = statuses
+        updateCheckedIDs = Set(containers.map(\.id))
+    }
+
+    /// Logs each container that's back under the same name on a different
+    /// image. The first look only records what's running: there is nothing
+    /// yet to compare it with.
+    private func recordImageChanges(_ images: [String: ContainerImage]) {
+        var events: [DowntimeEvent] = []
+        for container in containers {
+            guard let image = images[container.id] else { continue }
+            let version = container.runningImageVersion
+
+            if let before = knownImages[container.name], before.imageID != image.imageID {
+                events.append(DowntimeEvent(
+                    containerName: container.name,
+                    kind: .updated,
+                    // Watchtower recreates and starts in one go, so the new
+                    // container's start is when the update happened.
+                    at: container.startedAt ?? Date(),
+                    image: container.image,
+                    fromVersion: before.version,
+                    toVersion: version
+                ))
+            }
+            knownImages[container.name] = KnownImage(imageID: image.imageID, version: version)
+        }
+
+        guard !events.isEmpty else { return }
+        historyStore.append(events)
+        history = historyStore.load()
+    }
+
     // MARK: - Polling
 
     func startPolling() {
@@ -299,6 +487,15 @@ final class ContainerStore {
             recomputeAssessments()
 
             if !notifiable.isEmpty { await notifier.post(notifiable) }
+
+            // Not awaited: asking a dozen registries shouldn't hold the
+            // refresh spinner up.
+            if updateCheckTask == nil {
+                updateCheckTask = Task { [weak self] in
+                    await self?.checkForUpdatesIfDue()
+                    self?.updateCheckTask = nil
+                }
+            }
 
             // Probing happens after the list is already on screen, so the
             // menu updates immediately and sharpens a moment later.

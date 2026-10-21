@@ -18,6 +18,16 @@ struct AgentListOutput: Sendable {
     var warnings: [String] = []
 }
 
+/// The image a container was created from, as `ballast-agent images` reports it.
+struct ContainerImage: Sendable, Equatable {
+    /// Changes whenever the container is recreated onto a different image —
+    /// which is what an update looks like from outside.
+    var imageID: String
+    /// Registry digests, without the repository name. Empty for an image
+    /// built on the NAS rather than pulled.
+    var digests: [String]
+}
+
 enum AgentParseError: Error, Equatable {
     case missingHeader
     case unsupportedProtocol(found: Int, supported: Int)
@@ -31,6 +41,61 @@ enum AgentOutputParser {
     private static let fieldCount = 14
 
     static func parseList(_ text: String) throws -> AgentListOutput {
+        let (version, warnings, records) = try frame(text)
+
+        var containers: [Container] = []
+        containers.reserveCapacity(records.count)
+        for (offset, line) in records.enumerated() {
+            containers.append(try parseRecord(line, lineNumber: offset + 1))
+        }
+        return AgentListOutput(protocolVersion: version, containers: containers, warnings: warnings)
+    }
+
+    /// Decodes `ballast-agent images` into each container's image, keyed by
+    /// container id. A container whose image couldn't be inspected is left
+    /// out.
+    static func parseImages(_ text: String) throws -> [String: ContainerImage] {
+        let (_, _, records) = try frame(text)
+
+        var imageOf: [String: String] = [:]
+        var digestsOf: [String: [String]] = [:]
+        for (offset, line) in records.enumerated() {
+            let fields = line.components(separatedBy: "\t")
+            guard fields.count == 3 else {
+                throw AgentParseError.badRecord(line: offset + 1, reason: "expected 3 fields, found \(fields.count)")
+            }
+            do {
+                let kind = try JSONFragment.decode(String.self, from: fields[0])
+                let id = try JSONFragment.decode(String.self, from: fields[1])
+                switch kind {
+                case "container":
+                    imageOf[id] = try JSONFragment.decode(String.self, from: fields[2])
+                case "image":
+                    // `name@sha256:…` — the name differs by registry, the
+                    // digest doesn't, so only the digest is kept, once.
+                    let references = try JSONFragment.decode([String]?.self, from: fields[2]) ?? []
+                    var seen = Set<String>()
+                    digestsOf[id] = references
+                        .compactMap { $0.split(separator: "@", maxSplits: 1).last.map(String.init) }
+                        .filter { seen.insert($0).inserted }
+                default:
+                    // Newer agents may add record kinds; skip what isn't ours.
+                    continue
+                }
+            } catch {
+                throw AgentParseError.badRecord(line: offset + 1, reason: "\(error)")
+            }
+        }
+
+        return imageOf.compactMapValues { imageID in
+            digestsOf[imageID].map { ContainerImage(imageID: imageID, digests: $0) }
+        }
+    }
+
+    /// Checks the `#ballast` header and `#end` terminator every subcommand's
+    /// output shares, and splits what's between them into directives and
+    /// records.
+    private static func frame(_ text: String) throws -> (version: Int, warnings: [String], records: [String]) {
         var lines = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
 
         guard let header = lines.first, header.hasPrefix("#ballast ") else {
@@ -62,13 +127,7 @@ enum AgentOutputParser {
         guard declared == records.count else {
             throw AgentParseError.truncated(declared: declared, received: records.count)
         }
-
-        var containers: [Container] = []
-        containers.reserveCapacity(records.count)
-        for (offset, line) in records.enumerated() {
-            containers.append(try parseRecord(line, lineNumber: offset + 1))
-        }
-        return AgentListOutput(protocolVersion: version, containers: containers, warnings: warnings)
+        return (version, warnings, records)
     }
 
     private static func parseRecord(_ line: String, lineNumber: Int) throws -> Container {

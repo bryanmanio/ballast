@@ -8,6 +8,7 @@ struct ContainerRow: View {
     var isBusy = false
     var lastExit: DowntimeEvent?
     var isMuted = false
+    var update: ImageUpdateStatus?
     var perform: (ContainerAction) -> Void = { _ in }
     var onHide: () -> Void = {}
     var onToggleMute: () -> Void = {}
@@ -16,6 +17,7 @@ struct ContainerRow: View {
     @Environment(\.openURL) private var openURL
 
     private var primary: ServiceEndpoint? { endpoints.first }
+    private var imageReference: ImageReference? { ImageReference(container.image) }
     private var isOpenable: Bool { primary != nil }
 
     @ViewBuilder
@@ -42,6 +44,10 @@ struct ContainerRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
+
+                if let update, update.isUpdate {
+                    UpdateBadge(update: update, url: imageReference?.webURL)
+                }
 
                 // Revealed on hover, in the slack after the name, so no other
                 // element moves when it appears.
@@ -118,6 +124,8 @@ struct ContainerRow: View {
         if let url = primary?.url { lines.append(url.absoluteString) }
         if container.restartCount > 0 { lines.append("\(container.restartCount) restarts") }
         if let lastExit { lines.append("Last exit: \(lastExit.summary), \(lastExit.relativeTime())") }
+        // Up to date is the expected case, and says nothing worth a line.
+        if let update, update != .upToDate { lines.append(update.summary) }
         return lines.joined(separator: "\n")
     }
 
@@ -146,6 +154,9 @@ struct ContainerRow: View {
         Button("Hide from menu") { onHide() }
         Button(isMuted ? "Unmute exit notifications" : "Mute exit notifications") { onToggleMute() }
         Divider()
+        if let url = imageReference?.webURL, let site = imageReference?.webSiteName {
+            Button("Open on \(site)") { openURL(url) }
+        }
         Button("Copy container name") { copy(container.name) }
         Button("Copy image") { copy(container.image) }
     }
@@ -183,6 +194,31 @@ private struct RowIconButton: View {
         .glassEffect(.regular.interactive(), in: .circle)
         .onHover { isHovering = $0 }
         .help(help)
+    }
+}
+
+/// Marks a container whose image has a newer release, beside its name. Opens
+/// the image's page, where the release can be read about — updating is left
+/// to Watchtower or compose, which know how the container was made.
+private struct UpdateBadge: View {
+    let update: ImageUpdateStatus
+    let url: URL?
+
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Button {
+            if let url { openURL(url) }
+        } label: {
+            Image(systemName: "arrow.up.circle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.tint)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .disabled(url == nil)
+        .help(url == nil ? update.summary : "\(update.summary)\nClick to see the release")
+        .accessibilityLabel(update.summary)
     }
 }
 
