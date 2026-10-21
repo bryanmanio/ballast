@@ -337,11 +337,17 @@ ports that no sibling has claimed. That last step is a guess — set
 ./scripts/release.sh --skip-notarize # local check, no Apple round trip
 ```
 
-It archives Release, exports with Developer ID, verifies the result, wraps it
-in a disk image with an `/Applications` alias, notarises it and staples the
-ticket. The checks before the build are the ones worth failing fast on: a
-Developer ID certificate for the team, notarytool credentials, the hardened
-runtime flag, and that `nas/` actually made it into the bundle.
+It runs the unit tests, archives Release, exports with Developer ID, verifies
+the result, wraps it in a disk image with an `/Applications` alias, notarises
+it and staples the ticket. The checks before the build are the ones worth
+failing fast on: a clean working tree, a Developer ID certificate for the team,
+and notarytool credentials. After it come the hardened runtime flag, a
+universal binary, and that `nas/` actually made it into the bundle.
+
+Alongside the disk image, `dist/` gets its SHA-256 and a zip of the build's
+dSYMs, named with the commit. Keep the dSYMs. They aren't part of the
+release, but they're the only way to symbolicate a crash report from that
+build.
 
 Two one-time pieces of setup, both account-bound — the script prints the exact
 command for each if it's missing:
