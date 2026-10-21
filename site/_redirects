@@ -1,0 +1,4 @@
+# Netlify's _redirects only understands http(s) targets, so there is no
+# /support shortcut to a mailto: — the footer links the address directly.
+/github    https://github.com/bryanmanio/ballast              302!
+/download  https://github.com/bryanmanio/ballast/releases/latest  302!
