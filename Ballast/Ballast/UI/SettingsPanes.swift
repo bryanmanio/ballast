@@ -237,6 +237,21 @@ struct MenuPane: View {
             }
         }
 
+        // The menu's header controls are icons with no room for a label, so
+        // this is where the keys they answer to are written down.
+        SettingsGroup("Keyboard") {
+            SettingsRow("Filter containers") { KeyCaps("⌘F") }
+            RowDivider()
+            SettingsRow("Refresh now") { KeyCaps("⌘R") }
+            RowDivider()
+            SettingsRow("Downtime history") { KeyCaps("⌘Y") }
+            RowDivider()
+            SettingsRow("Settings") { KeyCaps("⌘,") }
+            RowDivider()
+            SettingsRow("Back to the list") { KeyCaps("esc") }
+            RowNote("These work while the menu is open — the hotkey that opens it from anywhere is under General. Quit is in the right-click menu, on the menu bar icon or on the menu itself.")
+        }
+
         let muted = store.mutedContainerNames
         SettingsGroup("Muted") {
             if muted.isEmpty {

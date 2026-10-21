@@ -142,6 +142,9 @@ on — each with the specific fix.
 Hovering a row replaces its port with restart and stop buttons — or start, if
 the container is stopped. The same actions are in the row's right-click menu.
 
+Clicking a row opens the service; dragging one carries its URL out of the app,
+into a browser, a note or the Finder.
+
 These are the only operations that change anything on the NAS. The agent
 validates the container reference against the live container list before
 passing it to Docker, and the reference travels as its own argument rather
@@ -193,10 +196,27 @@ Settings → General controls how often Ballast looks: an interval, and a
 background — opening the menu or pressing the refresh button still fetches the
 current state.
 
-The magnifying glass in the menu's header reveals a filter field (Escape
-closes it). When any container is stopped, a Running / Stopped / All control
-appears so stopped containers are one click away rather than a scroll to the
-bottom.
+The magnifying glass in the menu's header reveals a filter field, with a count
+of how much of the list survives the filter (Escape closes it). When any
+container is stopped, a Running / Stopped control appears so stopped containers
+are one click away rather than a scroll to the bottom.
+
+## Keys inside the menu
+
+The global hotkey above gets you to the menu; these move around inside it. The
+header's controls are icons with no room for a label, so each one is also a key
+away while the menu is open:
+
+| Key | Does |
+|---|---|
+| `⌘F` | Reveal the filter field and put the caret in it |
+| `⌘R` | Refresh now |
+| `⌘Y` | Downtime history |
+| `⌘,` | Settings — also on the menu bar icon's right-click menu |
+| `esc` | Back to the list, or close the filter field |
+
+The same list is in Settings → Menu → Keyboard. Escape with the list already
+showing dismisses the menu, the way it does in any other menu.
 
 ## Downtime history and notifications
 

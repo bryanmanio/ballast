@@ -18,7 +18,19 @@ struct ContainerRow: View {
     private var primary: ServiceEndpoint? { endpoints.first }
     private var isOpenable: Bool { primary != nil }
 
+    @ViewBuilder
     var body: some View {
+        // The URL is draggable out of the row — into a browser, a note, the
+        // Finder — which is what a Mac user will try with something that is
+        // plainly a link. A row with no URL has nothing to carry.
+        if let url = primary?.url {
+            row.draggable(url)
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         Button(action: open) {
             HStack(spacing: 8) {
                 StatusIndicator(status: assessment.status)

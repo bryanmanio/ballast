@@ -13,6 +13,13 @@ private enum ContainerScope: String, CaseIterable, Identifiable {
     }
 }
 
+/// Which pane the popover is showing. One value rather than a flag apiece,
+/// so there is no state in which two of them are up at once. Settings isn't
+/// among them — those live in their own window.
+private enum Pane {
+    case list, history
+}
+
 /// The popover: everything running, grouped by stack, with the things that
 /// need attention visible without scrolling.
 struct MenuContentView: View {
@@ -28,7 +35,7 @@ struct MenuContentView: View {
     /// height, so inside a popover — which sizes itself to its content — it
     /// collapses to nothing unless given an explicit height.
     @State private var contentHeight: CGFloat = 0
-    @State private var showingHistory = false
+    @State private var pane: Pane = .list
     @State private var showingSearch = false
     @State private var scope: ContainerScope = .running
     @FocusState private var searchFocused: Bool
@@ -39,13 +46,17 @@ struct MenuContentView: View {
     private static let minListHeight: CGFloat = 44
 
     var body: some View {
-        VStack(spacing: 0) {
-            if showingHistory {
-                paneHeader("History") { showingHistory = false }
-                Divider()
-                HistoryView(store: store)
-            } else {
+        // Overlaid rather than stacked: mid-transition both panes exist, and
+        // in a VStack that would briefly make the popover as tall as the two
+        // of them together.
+        ZStack(alignment: .top) {
+            switch pane {
+            case .list:
                 listBody
+                    .transition(Self.paneTransition(from: -14))
+            case .history:
+                paneBody("History") { HistoryView(store: store) }
+                    .transition(Self.paneTransition(from: 14))
             }
         }
         .frame(width: 340)
@@ -53,7 +64,15 @@ struct MenuContentView: View {
         // so without it there would be no way to quit from the UI at all.
         .contextMenu {
             Button("Quit Ballast") { NSApplication.shared.terminate(nil) }
+                // Only live while this menu is open — an agent app has no app
+                // menu to own ⌘Q — but it labels the item the way every other
+                // Mac app labels Quit.
+                .keyboardShortcut("q")
         }
+        // Escape steps back out of a pane. With the list already showing
+        // there is nothing to step back to, so the key is left alone and goes
+        // on dismissing the popover the way it does in any other menu.
+        .onExitCommand(perform: pane == .list ? nil : { show(.list) })
         .onAppear {
             // Opening the menu is an explicit request for current data, but
             // don't re-fetch if we just did.
@@ -81,6 +100,10 @@ struct MenuContentView: View {
 
             if showingSearch {
                 searchField
+                    // Opacity alone: the field's arrival already moves
+                    // everything under it, and sliding as well would be two
+                    // motions for one change.
+                    .transition(.opacity)
             }
 
             if hasStopped {
@@ -91,12 +114,34 @@ struct MenuContentView: View {
         }
     }
 
+    /// Panes travel in from the side they conceptually sit on — a forward
+    /// pane from the right, the list back in from the left — so stepping in
+    /// and out again reads as one movement rather than two cuts.
+    private static func paneTransition(from offset: CGFloat) -> AnyTransition {
+        .offset(x: offset).combined(with: .opacity)
+    }
+
+    private func show(_ next: Pane) {
+        withAnimation(.easeInOut(duration: 0.15)) { pane = next }
+    }
+
+    /// A pane that replaces the list: its own header carrying the way back,
+    /// then its content.
+    private func paneBody<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            paneHeader(title) { show(.list) }
+            Divider()
+            content()
+        }
+    }
+
     /// Header for a pane that replaces the list, with the way back.
     private func paneHeader(_ title: String, close: @escaping () -> Void) -> some View {
         HStack(spacing: 5) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.15), close)
-            } label: {
+            Button(action: close) {
                 HStack(spacing: 3) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 10, weight: .semibold))
@@ -106,7 +151,7 @@ struct MenuContentView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.pressable)
-            .help("Back to the container list")
+            .help("Back to the container list (esc)")
 
             Spacer()
         }
@@ -137,28 +182,35 @@ struct MenuContentView: View {
                 HStack(spacing: 4) {
                     HeaderButton(
                         symbol: "magnifyingglass",
-                        help: "Filter containers",
-                        isActive: showingSearch
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.12)) { showingSearch.toggle() }
-                        if showingSearch {
-                            searchFocused = true
-                        } else {
-                            searchText = ""
-                        }
-                    }
+                        help: "Filter containers (⌘F)",
+                        shortcut: KeyboardShortcut("f"),
+                        isActive: showingSearch,
+                        action: toggleSearch
+                    )
 
-                    HeaderButton(symbol: "arrow.clockwise", help: "Refresh now") {
+                    HeaderButton(
+                        symbol: "arrow.clockwise",
+                        help: "Refresh now (⌘R)",
+                        shortcut: KeyboardShortcut("r")
+                    ) {
                         Task { await store.refresh() }
                     }
                     .disabled(store.isRefreshing)
                     .opacity(store.isRefreshing ? 0.4 : 1)
 
-                    HeaderButton(symbol: "clock.arrow.circlepath", help: "Downtime history") {
-                        withAnimation(.easeInOut(duration: 0.15)) { showingHistory = true }
+                    HeaderButton(
+                        symbol: "clock.arrow.circlepath",
+                        help: "Downtime history (⌘Y)",
+                        shortcut: KeyboardShortcut("y")
+                    ) {
+                        show(.history)
                     }
 
-                    HeaderButton(symbol: "gearshape", help: "Settings") {
+                    HeaderButton(
+                        symbol: "gearshape",
+                        help: "Settings (⌘,)",
+                        shortcut: KeyboardShortcut(",")
+                    ) {
                         // Settings are a window now, not a pane: a source
                         // list doesn't fit in 340 points, and an agent app
                         // isn't frontmost, so it has to be brought forward.
@@ -179,24 +231,49 @@ struct MenuContentView: View {
         return problems > 0 ? "\(running) up · \(problems) need attention" : "\(running) up"
     }
 
+    /// ⌘F and the magnifying glass share this. Pressing either with the
+    /// field already up and focused is how you put it away; an unfocused
+    /// field gets the caret back instead of being dismissed out from under
+    /// the thing you were about to type into.
+    private func toggleSearch() {
+        if showingSearch && searchFocused {
+            closeSearch()
+        } else if showingSearch {
+            searchFocused = true
+        } else {
+            withAnimation(.easeInOut(duration: 0.12)) { showingSearch = true }
+            searchFocused = true
+        }
+    }
+
+    private func closeSearch() {
+        searchText = ""
+        withAnimation(.easeInOut(duration: 0.12)) { showingSearch = false }
+    }
+
     private var searchField: some View {
         HStack(spacing: 5) {
             TextField("Filter", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .focused($searchFocused)
-                .onExitCommand {
-                    searchText = ""
-                    showingSearch = false
-                }
+                .onExitCommand { closeSearch() }
+
             if !searchText.isEmpty {
+                // How much of the list is left, so a filter that hides most
+                // of it says so rather than just looking like a short list.
+                Text("\(visibleRows.count) of \(scopeTotal)")
+                    .font(.system(size: 10))
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 10))
                         // The glyph stays small, but the target doesn't: 10pt
                         // of hittable area is a dart throw with a mouse.
-                        // Nothing sits beside it, so the larger shape can't
-                        // steal a click from another control.
+                        // The count beside it isn't a control, so the
+                        // larger shape can't steal anyone's click.
                         .frame(width: 18, height: 18)
                         .contentShape(.circle)
                 }
@@ -329,6 +406,15 @@ struct MenuContentView: View {
         }
     }
 
+    /// What the current scope holds before filtering, so the count beside
+    /// the field reads as "3 of 18" rather than as a bare number.
+    private var scopeTotal: Int {
+        switch scope {
+        case .running: store.activeContainers.count
+        case .stopped: store.stoppedContainers.count
+        }
+    }
+
     private var filteredActive: [Container] {
         searchText.isEmpty ? store.activeContainers : store.activeContainers.filter(matches)
     }
@@ -404,6 +490,10 @@ private struct ScopeControl: View {
 private struct HeaderButton: View {
     let symbol: String
     let help: String
+    /// Hidden controls can't be reached by eye, so each one that matters is
+    /// also a key away. The hint lives in `help`, since there is no room for
+    /// a visible label at this size.
+    var shortcut: KeyboardShortcut?
     var isActive = false
     let action: () -> Void
 
@@ -415,6 +505,7 @@ private struct HeaderButton: View {
                 .contentShape(.circle)
         }
         .buttonStyle(.pressable)
+        .keyboardShortcut(shortcut)
         .foregroundStyle(isActive ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
         // Interactive in both states: an active button that stops responding
         // to the pointer reads as disabled.

@@ -152,6 +152,30 @@ struct RowField: View {
     }
 }
 
+/// A shortcut's keys, set in the small raised box macOS uses for them
+/// everywhere else. Read-only — the one shortcut you can change is the
+/// global hotkey, which has `HotkeyField` instead.
+struct KeyCaps: View {
+    let keys: String
+
+    init(_ keys: String) {
+        self.keys = keys
+    }
+
+    var body: some View {
+        Text(keys)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.primary.opacity(0.07))
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+            }
+    }
+}
+
 extension View {
     /// A popup sized to its selection, as the right-hand control of a row.
     func rowPicker() -> some View {
