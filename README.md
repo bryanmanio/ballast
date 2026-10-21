@@ -347,6 +347,11 @@ window only offers itself when there isn't one.
   translocated from a random read-only path until it's moved to Applications.
 - `Tests/` — unit tests over `Core`.
 
+The landing page at [ballast.ing](https://ballast.ing) is not in this repo —
+it lives in [ballast-site](https://github.com/bryanmanio/ballast-site), along
+with its Netlify config and the DNS script for the zone. `BallastMark` is
+still drawn twice on purpose: once in Swift here, once as the favicon there.
+
 `Package.swift` points a SwiftPM target at `Ballast/Ballast/Core` so
 `swift test` can exercise that logic directly, with no duplicated sources and
 no test target wired into `project.pbxproj`. One side effect: editors that
