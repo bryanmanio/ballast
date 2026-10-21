@@ -53,8 +53,16 @@ EXPORTED="$SCRATCH/export"
 STAGE="$SCRATCH/dmg"
 
 # --- preflight ------------------------------------------------------------
-# Both of these are one-time, interactive, and account-bound, so they are
-# checked up front rather than failing twenty minutes into a build.
+# Signing and notarisation are one-time, interactive, and account-bound, so
+# they are checked up front rather than failing twenty minutes into a build.
+
+# A shipped build has to be traceable to a commit, so uncommitted changes
+# would make the release irreproducible. A local check doesn't ship.
+if [ "$SKIP_NOTARIZE" -eq 0 ] && [ -n "$(git status --porcelain)" ]; then
+    git status --short | sed 's/^/  /' >&2
+    die "the working tree has uncommitted changes; commit them, or use --skip-notarize for a local check"
+fi
+COMMIT=$(git rev-parse --short HEAD)
 
 say "Checking signing identity"
 IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
@@ -140,6 +148,12 @@ DMG="$OUTPUT/$APP_NAME-$VERSION.dmg"
 
 # --- build ----------------------------------------------------------------
 
+say "Running unit tests"
+TEST_LOG="$SCRATCH/test.log"
+./scripts/test.sh >"$TEST_LOG" 2>&1 \
+    || { tail -30 "$TEST_LOG" >&2; die "unit tests failed; full log at $TEST_LOG"; }
+echo "  passed"
+
 say "Archiving $APP_NAME $VERSION"
 xcodebuild archive \
     -project "$PROJECT" \
@@ -184,6 +198,14 @@ codesign --verify --strict --verbose=2 "$APP" 2>&1 | sed 's/^/  /'
 codesign -d -vvv "$APP" 2>&1 | grep -q 'flags=.*runtime' \
     || die "the app is not hardened-runtime signed (ENABLE_HARDENED_RUNTIME)"
 echo "  hardened runtime on"
+
+# Release archives build ARCHS_STANDARD, but an override anywhere in the
+# project would quietly drop Intel Macs, which macOS 26 still supports.
+ARCHS=$(lipo -archs "$APP/Contents/MacOS/$APP_NAME")
+case "$ARCHS" in
+    *arm64*x86_64*|*x86_64*arm64*) echo "  universal ($ARCHS)" ;;
+    *) die "the binary is not universal: $ARCHS" ;;
+esac
 
 # The agent scripts are the reason the app is useful; a missing copy phase
 # would otherwise only show up when a user pastes a broken command.
@@ -233,6 +255,14 @@ hdiutil create \
 codesign --sign "$IDENTITY" --timestamp "$DMG"
 echo "  $DMG"
 
+# The dSYMs are the only way to symbolicate a crash report from this exact
+# build, and the archive they live in is about to be thrown away with the
+# scratch directory. They stay out of the release itself.
+DSYMS="$OUTPUT/$APP_NAME-$VERSION-$COMMIT-dSYMs.zip"
+rm -f "$DSYMS"
+ditto -c -k --keepParent "$ARCHIVE/dSYMs" "$DSYMS"
+echo "  $DSYMS"
+
 # --- notarise -------------------------------------------------------------
 
 if [ "$SKIP_NOTARIZE" -eq 1 ]; then
@@ -264,10 +294,17 @@ xcrun stapler validate "$MOUNT/$APP_NAME.app" >/dev/null 2>&1 \
     || { hdiutil detach "$MOUNT" -quiet; die "the app in the image has no stapled ticket"; }
 hdiutil detach "$MOUNT" -quiet
 
+# Written after stapling, which changes the image's bytes.
+(cd "$OUTPUT" && shasum -a 256 "$(basename "$DMG")" > "$(basename "$DMG").sha256")
+SHA=$(cut -d' ' -f1 "$DMG.sha256")
+
 cat <<EOF
 
 Done: $DMG
+  built from $COMMIT
+  sha256 $SHA
 
-Attach it to a release:
-    gh release create v$VERSION "$DMG" --title "Ballast $VERSION" --notes "..."
+Tag and attach it to a release:
+    git tag -a v$VERSION $COMMIT -m "Ballast $VERSION" && git push origin v$VERSION
+    gh release create v$VERSION "$DMG" "$DMG.sha256" --verify-tag --title "Ballast $VERSION" --notes "..."
 EOF
