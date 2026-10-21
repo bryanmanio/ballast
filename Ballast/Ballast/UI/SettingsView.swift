@@ -1,426 +1,125 @@
-import ServiceManagement
 import SwiftUI
 
-/// Settings, laid out for the width of the menu rather than a separate
-/// window: labels sit above their fields so nothing is cramped at 340pt.
+/// Settings in the shape a Mac app is expected to take: a source list of
+/// topics on the left, one topic's controls on the right. Splitting the old
+/// single scroll into panes means each one fits on screen whole, which is
+/// what makes a setting findable.
 struct SettingsView: View {
     @Bindable var settings: AppSettings
     let store: ContainerStore
 
-    @State private var test: TestState = .idle
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var launchAtLoginError: String?
-    @State private var showAdvanced = false
-    /// Set when the user turns notifications on and macOS says no, so the
-    /// reason is still on screen after the toggle has switched itself back off.
-    @State private var notificationsBlocked = false
-    /// Confirms the test notification went out, for the case where macOS
-    /// shows the banner somewhere the user isn't looking.
-    @State private var testNotificationSent = false
-
-    enum TestState {
-        case idle, running
-        case success(AgentCheck)
-        case failure(BallastError)
-    }
+    @State private var pane: SettingsPane = .general
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                nasSection
-                urlSection
-                appearanceSection
-                hiddenSection
-                behaviourSection
-                notificationsSection
-                shortcutsSection
-                advancedSection
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
+        NavigationSplitView {
+            sidebar
+        } detail: {
+            detail
         }
-        .frame(maxHeight: 460)
-        // Unlike the container list, settings give no hint that there is more
-        // below the fold, so the scroller stays on to show how far down we are.
-        .scrollIndicators(.automatic)
+        .frame(minWidth: 640, idealWidth: 720, minHeight: 440, idealHeight: 520)
         .task { await store.refreshNotificationAuthorization() }
     }
 
-    // MARK: Sections
-
-    private var nasSection: some View {
-        SettingsSection("NAS") {
-            LabelledField("SSH destination", text: $settings.sshDestination, prompt: "ballast@nas.local")
-                .onSubmit { runTest() }
-
-            HStack(spacing: 6) {
-                Button("Test connection") { runTest() }
-                    .controlSize(.small)
-                    .disabled(!settings.isConfigured || isRunning)
-                if isRunning { ProgressView().controlSize(.small) }
+    private var sidebar: some View {
+        List(selection: $pane) {
+            Section("Settings") {
+                ForEach(SettingsPane.settings) { row(for: $0) }
             }
-
-            testResult
-
-            Caption("Ballast uses your existing SSH key. It stores no password or token.")
+            Section("Ballast") {
+                ForEach(SettingsPane.app) { row(for: $0) }
+            }
         }
+        .listStyle(.sidebar)
+        .navigationSplitViewColumnWidth(min: 176, ideal: 192, max: 240)
     }
 
-    private var urlSection: some View {
-        SettingsSection("Service URLs") {
-            LabelledField(
-                "Local hostname",
-                text: $settings.lanHost,
-                prompt: settings.effectiveLANHost.isEmpty ? "nas.local" : settings.effectiveLANHost
-            )
-            LabelledField("Remote hostname", text: $settings.remoteHost, prompt: "100.x.y.z")
-            Caption("Used to build each service's URL. The remote hostname is used whenever the local one doesn't answer, so the menu keeps working away from home.")
+    private func row(for pane: SettingsPane) -> some View {
+        HStack(spacing: 7) {
+            PaneIcon(symbol: pane.symbol, tint: pane.tint)
+            Text(pane.title)
+                .font(.system(size: 13))
         }
+        .padding(.vertical, 1)
+        .tag(pane)
     }
 
-    private var appearanceSection: some View {
-        SettingsSection("Appearance") {
-            Picker("Sort by", selection: $settings.sortOrder) {
-                ForEach(ContainerSortOrder.allCases) { order in
-                    Text(order.label).tag(order)
+    private var detail: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                switch pane {
+                case .general: GeneralPane(settings: settings)
+                case .connection: ConnectionPane(settings: settings, store: store)
+                case .menu: MenuPane(settings: settings, store: store)
+                case .notifications: NotificationsPane(settings: settings, store: store)
+                case .history: HistoryPane(store: store)
+                case .about: AboutPane()
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            .padding(20)
+            // A column rather than the full width of the window: rows whose
+            // label and control are metres apart are hard to pair up.
+            .frame(maxWidth: 560, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .navigationTitle(pane.title)
+    }
+}
 
-            Toggle("Hide project names", isOn: $settings.hideProjectNames)
-                .help("Show one flat list instead of grouping containers under their compose stack.")
+/// The topics in the source list, in the order they're shown.
+enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
+    case general, connection, menu, notifications, history, about
+
+    var id: String { rawValue }
+
+    /// Everything that configures the app…
+    static let settings: [SettingsPane] = [.general, .connection, .menu, .notifications, .history]
+    /// …and everything that's about it, which System Settings keeps apart.
+    static let app: [SettingsPane] = [.about]
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .connection: "Connection"
+        case .menu: "Menu"
+        case .notifications: "Notifications"
+        case .history: "History"
+        case .about: "About"
         }
     }
 
-    /// Only present when something is hidden, so it isn't an empty box most
-    /// of the time.
-    @ViewBuilder
-    private var hiddenSection: some View {
-        let hidden = store.hiddenContainerNames
-        if !hidden.isEmpty {
-            SettingsSection("Hidden") {
-                ForEach(hidden, id: \.self) { name in
-                    HStack(spacing: 6) {
-                        Text(name)
-                            .font(.system(size: 11))
-                            .lineLimit(1)
-                        Spacer(minLength: 4)
-                        Button {
-                            store.unhide(name)
-                        } label: {
-                            Text("Show")
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        .buttonStyle(.glass)
-                        .controlSize(.small)
-                        .help("Show \(name) in the menu again")
-                    }
-                }
-                Caption("Hidden with “Hide from menu” on a container's right-click menu. This is stored on this Mac; it doesn't change anything on the NAS.")
-            }
+    var symbol: String {
+        switch self {
+        case .general: "gearshape.fill"
+        case .connection: "network"
+        case .menu: "menubar.rectangle"
+        case .notifications: "bell.badge.fill"
+        case .history: "clock.arrow.circlepath"
+        case .about: "info"
         }
     }
 
-    private var behaviourSection: some View {
-        SettingsSection("Behaviour") {
-            Picker("Refresh every", selection: $settings.refreshInterval) {
-                Text("10 seconds").tag(10.0)
-                Text("30 seconds").tag(30.0)
-                Text("1 minute").tag(60.0)
-                Text("5 minutes").tag(300.0)
-            }
-
-            Toggle("Check that services respond", isOn: $settings.probeEnabled)
-                .help("Requests each service's URL as well as reading Docker's state. Catches a container that is running but wedged, at the cost of occasional false alarms.")
-
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, enabled in setLaunchAtLogin(enabled) }
-
-            if let launchAtLoginError {
-                Text(launchAtLoginError)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var notificationsSection: some View {
-        SettingsSection("Notifications") {
-            Toggle("Notify when a container exits unexpectedly", isOn: $settings.notifyOnUnexpectedExit)
-                .onChange(of: settings.notifyOnUnexpectedExit) { _, enabled in
-                    if enabled { enableNotifications() } else { notificationsBlocked = false }
-                }
-
-            if notificationsBlocked
-                || (settings.notifyOnUnexpectedExit && store.notificationAuthorization == .denied) {
-                Text("macOS is blocking notifications from Ballast. Allow them in System Settings → Notifications.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Caption("Only a non-zero exit code or an out-of-memory kill notifies. A clean exit, a container Docker already restarted, and anything you stop from Ballast are recorded in History but stay quiet.")
-
-            let muted = store.mutedContainerNames
-            ForEach(muted, id: \.self) { name in
-                HStack(spacing: 6) {
-                    Text(name)
-                        .font(.system(size: 11))
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    Button {
-                        store.unmute(name)
-                    } label: {
-                        Text("Unmute")
-                            .font(.system(size: 10, weight: .medium))
-                    }
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-                    .help("Notify about \(name) again")
-                }
-            }
-            if !muted.isEmpty {
-                Caption("Muted with “Mute exit notifications” on a container's right-click menu. A container can also opt out from its compose file with the ballast.notify=false label.")
-            }
-
-            HStack(spacing: 6) {
-                Button("Send a test notification") { sendTestNotification() }
-                    .controlSize(.small)
-                    .help("Posts a sample notification so you can check they arrive without waiting for something to break")
-
-                if testNotificationSent {
-                    Text("Sent")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .transition(.opacity)
-                }
-            }
-
-            Button("Clear history") { store.clearHistory() }
-                .controlSize(.small)
-                .disabled(store.history.isEmpty)
-        }
-    }
-
-    /// The menu's controls are icons with no room for a label, so this is
-    /// where the keys they answer to are written down.
-    private var shortcutsSection: some View {
-        SettingsSection("Keyboard") {
-            ShortcutRow("Filter containers", keys: "⌘F")
-            ShortcutRow("Refresh now", keys: "⌘R")
-            ShortcutRow("Downtime history", keys: "⌘Y")
-            ShortcutRow("Settings", keys: "⌘,")
-            ShortcutRow("Back to the list", keys: "esc")
-            Caption("These work while the menu is open. Quit is in the right-click menu, on the menu bar icon or on the menu itself.")
-        }
-    }
-
-    private var advancedSection: some View {
-        DisclosureGroup(isExpanded: $showAdvanced) {
-            VStack(alignment: .leading, spacing: 10) {
-                LabelledField("Agent path", text: $settings.agentPath, prompt: SSHContainerSource.defaultAgentPath)
-                HStack {
-                    Text("Reachability port")
-                        .font(.system(size: 11))
-                    Spacer()
-                    TextField("", value: $settings.reachabilityPort, format: .number)
-                        .frame(width: 60)
-                        .multilineTextAlignment(.trailing)
-                }
-            }
-            .padding(.top, 6)
-        } label: {
-            SectionLabel("Advanced")
-        }
-    }
-
-    // MARK: Test connection
-
-    private var isRunning: Bool {
-        if case .running = test { return true }
-        return false
-    }
-
-    @ViewBuilder
-    private var testResult: some View {
-        switch test {
-        case .idle, .running:
-            EmptyView()
-        case .success(let check):
-            HStack(alignment: .top, spacing: 5) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.green)
-                Text("Connected — Docker \(check.dockerServerVersion)")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-            }
-        case .failure(let error):
-            HStack(alignment: .top, spacing: 5) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.red)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(error.title).font(.system(size: 10.5, weight: .medium))
-                    Text(error.hint)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
-    private func runTest() {
-        test = .running
-        Task {
-            switch await store.testConnection() {
-            case .success(let check):
-                test = .success(check)
-                await store.refresh()
-            case .failure(let error):
-                test = .failure(error)
-            }
-        }
-    }
-
-    /// Asks for permission if it hasn't been granted yet, so this doubles as
-    /// the way to trigger the macOS prompt.
-    private func sendTestNotification() {
-        Task {
-            let sent = await store.sendTestNotification()
-            withAnimation(.easeInOut(duration: 0.15)) {
-                testNotificationSent = sent
-                notificationsBlocked = !sent
-            }
-            guard sent else { return }
-            try? await Task.sleep(for: .seconds(3))
-            withAnimation(.easeInOut(duration: 0.15)) { testNotificationSent = false }
-        }
-    }
-
-    private func enableNotifications() {
-        notificationsBlocked = false
-        Task {
-            if await store.requestNotificationAuthorization() { return }
-            // Left on, the toggle would promise notifications that can't arrive.
-            notificationsBlocked = true
-            settings.notifyOnUnexpectedExit = false
-        }
-    }
-
-    private func setLaunchAtLogin(_ enabled: Bool) {
-        launchAtLoginError = nil
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            // Registration fails for an app that isn't in /Applications, which
-            // is the usual state during development.
-            launchAtLoginError = "Couldn't change this: \(error.localizedDescription)"
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+    var tint: Color {
+        switch self {
+        case .general: .gray
+        case .connection: .blue
+        case .menu: .indigo
+        case .notifications: .red
+        case .history: .orange
+        case .about: .blue
         }
     }
 }
 
-// MARK: - Building blocks
-
-private struct SectionLabel: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+/// The tinted glyph that stands in for a pane in the source list.
+private struct PaneIcon: View {
+    let symbol: String
+    let tint: Color
 
     var body: some View {
-        Text(text)
+        Image(systemName: symbol)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.secondary)
-    }
-}
-
-private struct Caption: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 10))
-            .foregroundStyle(.tertiary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-/// One shortcut, with its keys set in the small raised box macOS uses for
-/// them everywhere else.
-private struct ShortcutRow: View {
-    let label: String
-    let keys: String
-
-    init(_ label: String, keys: String) {
-        self.label = label
-        self.keys = keys
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(label)
-                .font(.system(size: 11))
-            Spacer(minLength: 4)
-            Text(keys)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.primary.opacity(0.07))
-                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
-                }
-        }
-    }
-}
-
-/// Label above field, so a long value isn't squeezed into half the width.
-private struct LabelledField: View {
-    let title: String
-    @Binding var text: String
-    let prompt: String
-
-    init(_ title: String, text: Binding<String>, prompt: String) {
-        self.title = title
-        self._text = text
-        self.prompt = prompt
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.system(size: 11))
-            TextField("", text: $text, prompt: Text(prompt))
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 11))
-        }
-    }
-}
-
-/// A titled group of controls. Stands in for Form's Section, which needs a
-/// List or Form around it and reads badly at the width of a menu.
-private struct SettingsSection<Content: View>: View {
-    let title: String
-    @ViewBuilder var content: Content
-
-    init(_ title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            SectionLabel(title)
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(.white)
+            .frame(width: 18, height: 18)
+            .background(tint.gradient, in: .rect(cornerRadius: 4.5))
     }
 }

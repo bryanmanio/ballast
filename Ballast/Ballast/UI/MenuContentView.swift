@@ -14,9 +14,10 @@ private enum ContainerScope: String, CaseIterable, Identifiable {
 }
 
 /// Which pane the popover is showing. One value rather than a flag apiece,
-/// so there is no state in which two of them are up at once.
+/// so there is no state in which two of them are up at once. Settings isn't
+/// among them — those live in their own window.
 private enum Pane {
-    case list, settings, history
+    case list, history
 }
 
 /// The popover: everything running, grouped by stack, with the things that
@@ -26,6 +27,8 @@ struct MenuContentView: View {
     let settings: AppSettings
     /// The popover caps its list; the debug preview window doesn't need to.
     var maxListHeight: CGFloat = 460
+
+    @Environment(\.openWindow) private var openWindow
 
     @State private var searchText = ""
     /// Measured height of the list's contents. A ScrollView has no intrinsic
@@ -51,9 +54,6 @@ struct MenuContentView: View {
             case .list:
                 listBody
                     .transition(Self.paneTransition(from: -14))
-            case .settings:
-                paneBody("Settings") { SettingsView(settings: settings, store: store) }
-                    .transition(Self.paneTransition(from: 14))
             case .history:
                 paneBody("History") { HistoryView(store: store) }
                     .transition(Self.paneTransition(from: 14))
@@ -211,7 +211,11 @@ struct MenuContentView: View {
                         help: "Settings (⌘,)",
                         shortcut: KeyboardShortcut(",")
                     ) {
-                        show(.settings)
+                        // Settings are a window now, not a pane: a source
+                        // list doesn't fit in 340 points, and an agent app
+                        // isn't frontmost, so it has to be brought forward.
+                        NSApp.activate(ignoringOtherApps: true)
+                        openWindow(id: "settings")
                     }
                 }
             }

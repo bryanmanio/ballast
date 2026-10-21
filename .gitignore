@@ -14,3 +14,9 @@ Package.resolved
 # Synology Drive sync artefacts
 @eaDir/
 *.swp
+
+# Netlify CLI local state
+.netlify/
+
+# Personal Claude Code settings
+.claude/settings.local.json
