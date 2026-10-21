@@ -18,6 +18,8 @@ enum BallastError: Error, Equatable, Sendable {
     case timedOut
     /// The agent script isn't where we expect it on the NAS.
     case agentMissing
+    /// The agent predates a subcommand the app now uses.
+    case agentOutdated
     /// Passwordless sudo for the agent isn't in place.
     case sudoDenied
     /// The agent ran but couldn't find a docker binary.
@@ -39,6 +41,7 @@ enum BallastError: Error, Equatable, Sendable {
 
         // The agent reached the point of running and told us what was wrong.
         if lower.contains("ballast: docker-not-found") { return .dockerNotFound }
+        if lower.contains("ballast: usage:") { return .agentOutdated }
         if lower.contains("ballast: docker-unavailable") || lower.contains("ballast: inspect-failed") {
             return .dockerUnavailable
         }
@@ -86,6 +89,7 @@ enum BallastError: Error, Equatable, Sendable {
         case .sshFailed: "SSH failed"
         case .timedOut: "The NAS didn't respond in time"
         case .agentMissing: "Agent not installed"
+        case .agentOutdated: "Agent needs updating"
         case .sudoDenied: "Agent can't run without a password"
         case .dockerNotFound: "No Docker on the NAS"
         case .dockerUnavailable: "Docker isn't responding"
@@ -111,6 +115,8 @@ enum BallastError: Error, Equatable, Sendable {
             "The NAS may be asleep or under heavy load."
         case .agentMissing:
             "Run nas/deploy.sh again — a DSM update can clear /usr/local/bin."
+        case .agentOutdated:
+            "Run nas/deploy.sh again to update the agent on the NAS."
         case .sudoDenied:
             "Re-run nas/deploy.sh to reinstall the sudoers rule."
         case .dockerNotFound:

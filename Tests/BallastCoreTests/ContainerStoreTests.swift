@@ -6,6 +6,8 @@ import Testing
 final class StubSource: ContainerSource, @unchecked Sendable {
     var result: Result<AgentListOutput, BallastError>
     var actionError: BallastError?
+    var imagesResult: Result<[String: ContainerImage], BallastError> = .success([:])
+    private(set) var imagesCount = 0
     private(set) var fetchCount = 0
     private(set) var actions: [(ContainerAction, String)] = []
 
@@ -22,6 +24,11 @@ final class StubSource: ContainerSource, @unchecked Sendable {
         AgentCheck(protocolVersion: 1, dockerPath: "/usr/local/bin/docker",
                    dockerServerVersion: "24.0.2", agentPath: "/usr/local/bin/ballast-agent",
                    effectiveUID: 0)
+    }
+
+    func images() async throws -> [String: ContainerImage] {
+        imagesCount += 1
+        return try imagesResult.get()
     }
 
     func perform(_ action: ContainerAction, on container: String) async throws {

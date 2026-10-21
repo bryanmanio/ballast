@@ -68,6 +68,7 @@ struct BallastApp: App {
             probe: useFixtures ? FixtureProbe() : ServiceProbe(),
             historyStore: historyStore,
             notifier: UserNotificationsExitNotifier(),
+            registry: useFixtures ? FixtureImageRegistry() : RegistryClient(),
             requiresSSHConfiguration: !useFixtures,
             makeSource: makeSource
         )

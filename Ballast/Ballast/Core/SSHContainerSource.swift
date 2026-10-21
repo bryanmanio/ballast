@@ -28,6 +28,15 @@ struct SSHContainerSource: ContainerSource {
         return try parseCheck(output)
     }
 
+    func images() async throws -> [String: ContainerImage] {
+        let output = try await runAgent(subcommand: "images")
+        do {
+            return try AgentOutputParser.parseImages(output)
+        } catch let error as AgentParseError {
+            throw BallastError.parse(error)
+        }
+    }
+
     func perform(_ action: ContainerAction, on container: String) async throws {
         // Stopping can take up to Docker's grace period, so this waits
         // longer than a listing would.

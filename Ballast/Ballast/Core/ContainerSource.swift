@@ -41,5 +41,7 @@ enum ContainerAction: String, Sendable, CaseIterable {
 protocol ContainerSource: Sendable {
     func fetch() async throws -> AgentListOutput
     func check() async throws -> AgentCheck
+    /// The image each container was created from, keyed by container id.
+    func images() async throws -> [String: ContainerImage]
     func perform(_ action: ContainerAction, on container: String) async throws
 }

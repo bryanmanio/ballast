@@ -83,6 +83,8 @@ struct Container: Identifiable, Hashable, Sendable {
     var isHidden: Bool { labels["ballast.hide"]?.lowercased() == "true" }
     /// `ballast.notify=false` records its exits in history but never notifies.
     var notifyOptOut: Bool { labels["ballast.notify"]?.lowercased() == "false" }
+    /// `ballast.updates=false` keeps its image out of update checks.
+    var updateCheckOptOut: Bool { labels["ballast.updates"]?.lowercased() == "false" }
 
     var displayName: String {
         labels["ballast.name"] ?? name
@@ -90,7 +92,7 @@ struct Container: Identifiable, Hashable, Sendable {
 
     /// Tags that name a channel rather than a version, so they're worth
     /// looking past when something better is available.
-    private static let channelTags: Set<String> = [
+    static let channelTags: Set<String> = [
         "latest", "main", "master", "release", "stable", "edge",
         "develop", "development", "nightly", "rolling", "beta",
     ]

@@ -53,6 +53,9 @@ final class AppSettings {
     var mutedContainers: Set<String> {
         didSet { write(mutedContainers.sorted(), .mutedContainers) }
     }
+    /// Whether Ballast asks image registries if a container's tag has moved
+    /// on. The only setting that sends anything off the local network.
+    var imageUpdateChecksEnabled: Bool { didSet { write(imageUpdateChecksEnabled, .imageUpdateChecksEnabled) } }
     /// Set when the user finishes — or skips — the setup window, so it is
     /// offered once rather than at every launch.
     var hasCompletedOnboarding: Bool { didSet { write(hasCompletedOnboarding, .hasCompletedOnboarding) } }
@@ -85,6 +88,7 @@ final class AppSettings {
         hiddenContainers = Set(defaults.stringArray(forKey: Key.hiddenContainers.rawValue) ?? [])
         notifyOnUnexpectedExit = defaults.object(forKey: Key.notifyOnUnexpectedExit.rawValue) as? Bool ?? false
         mutedContainers = Set(defaults.stringArray(forKey: Key.mutedContainers.rawValue) ?? [])
+        imageUpdateChecksEnabled = defaults.object(forKey: Key.imageUpdateChecksEnabled.rawValue) as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding.rawValue)
     }
 
@@ -110,6 +114,7 @@ final class AppSettings {
         case refreshInterval, autoRefreshEnabled, probeEnabled, hotkey
         case hideProjectNames, sortOrder, hiddenContainers
         case notifyOnUnexpectedExit, mutedContainers
+        case imageUpdateChecksEnabled
         case hasCompletedOnboarding
     }
 

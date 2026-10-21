@@ -16,8 +16,8 @@ struct HistoryView: View {
         if store.history.isEmpty {
             EmptyStateView(
                 symbol: "clock.arrow.circlepath",
-                title: "No downtime recorded",
-                message: "Exits and restarts Ballast sees while it's running will appear here."
+                title: "No history yet",
+                message: "Exits, restarts and image updates Ballast sees while it's running will appear here."
             )
         } else {
             // Paired up here rather than stored, so an exit whose start went
@@ -90,10 +90,12 @@ private struct HistoryRow: View {
     }
 
     /// Matches the list: red for a failure, orange for something that
-    /// recovered on its own, green for coming back, grey for a clean stop.
+    /// recovered on its own, green for coming back, grey for a clean stop,
+    /// blue for a new image.
     private var tint: Color {
         switch event.kind {
         case .started: .green
+        case .updated: .blue
         case .crashRestarted: .orange
         case .exited:
             // `isNotifiable` is exactly "a failure nobody asked for".

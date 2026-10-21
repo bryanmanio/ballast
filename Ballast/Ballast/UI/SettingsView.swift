@@ -47,7 +47,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 switch pane {
-                case .general: GeneralPane(settings: settings)
+                case .general: GeneralPane(settings: settings, store: store)
                 case .connection: ConnectionPane(settings: settings, store: store)
                 case .menu: MenuPane(settings: settings, store: store)
                 case .notifications: NotificationsPane(settings: settings, store: store)
