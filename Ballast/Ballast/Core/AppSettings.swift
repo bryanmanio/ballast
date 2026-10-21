@@ -18,7 +18,23 @@ final class AppSettings {
     var agentPath: String { didSet { write(agentPath, .agentPath) } }
     /// Port used only to test which hostname is reachable.
     var reachabilityPort: Int { didSet { write(reachabilityPort, .reachabilityPort) } }
+    /// Whether the menu bar keeps itself up to date on a timer. Off still
+    /// refreshes when the menu is opened or the refresh button is pressed —
+    /// it stops the background polling, not the app.
+    var autoRefreshEnabled: Bool { didSet { write(autoRefreshEnabled, .autoRefreshEnabled) } }
     var refreshInterval: TimeInterval { didSet { write(refreshInterval, .refreshInterval) } }
+    /// System-wide shortcut that opens the menu. `nil` means no shortcut is
+    /// registered at all, which is what clearing the field leaves behind.
+    var hotkey: HotkeyBinding? {
+        // Cleared is written as an empty string rather than removed: an
+        // absent key means "never chosen", which is what restores the
+        // default, and clearing the field is the opposite of that.
+        didSet { write(hotkey?.storageValue ?? "", .hotkey) }
+    }
+    /// No longer has a switch in Settings: a probe reports a service as
+    /// degraded for reasons that have nothing to do with the service, and a
+    /// status you can't trust is worse than no status. Still read, so anyone
+    /// who wants it can set the default by hand.
     var probeEnabled: Bool { didSet { write(probeEnabled, .probeEnabled) } }
     /// Compose stack names are noise when you already know what runs where,
     /// so the list is flat unless asked otherwise.
@@ -47,7 +63,13 @@ final class AppSettings {
         remoteHost = defaults.string(forKey: Key.remoteHost.rawValue) ?? ""
         agentPath = defaults.string(forKey: Key.agentPath.rawValue) ?? SSHContainerSource.defaultAgentPath
         reachabilityPort = defaults.object(forKey: Key.reachabilityPort.rawValue) as? Int ?? 22
+        autoRefreshEnabled = defaults.object(forKey: Key.autoRefreshEnabled.rawValue) as? Bool ?? true
         refreshInterval = defaults.object(forKey: Key.refreshInterval.rawValue) as? TimeInterval ?? 30
+        if let stored = defaults.string(forKey: Key.hotkey.rawValue) {
+            hotkey = HotkeyBinding(storageValue: stored)
+        } else {
+            hotkey = Self.defaultHotkey
+        }
         // Off by default: Docker's own view of a container is trustworthy,
         // whereas an HTTP probe reports a service as degraded for reasons
         // that have nothing to do with the service (our own network path,
@@ -61,6 +83,10 @@ final class AppSettings {
         notifyOnUnexpectedExit = defaults.object(forKey: Key.notifyOnUnexpectedExit.rawValue) as? Bool ?? false
         mutedContainers = Set(defaults.stringArray(forKey: Key.mutedContainers.rawValue) ?? [])
     }
+
+    /// ⌥⌘B, free of anything macOS claims, so the shortcut works the first
+    /// time it's tried rather than only after a visit to Settings.
+    static let defaultHotkey = HotkeyBinding(keyCode: 11, modifiers: [.option, .command])
 
     var isConfigured: Bool {
         !sshDestination.trimmingCharacters(in: .whitespaces).isEmpty
@@ -77,7 +103,7 @@ final class AppSettings {
 
     private enum Key: String {
         case sshDestination, lanHost, remoteHost, agentPath, reachabilityPort
-        case refreshInterval, probeEnabled
+        case refreshInterval, autoRefreshEnabled, probeEnabled, hotkey
         case hideProjectNames, sortOrder, hiddenContainers
         case notifyOnUnexpectedExit, mutedContainers
     }
@@ -85,4 +111,5 @@ final class AppSettings {
     private func write(_ value: Any, _ key: Key) {
         defaults.set(value, forKey: key.rawValue)
     }
+
 }
