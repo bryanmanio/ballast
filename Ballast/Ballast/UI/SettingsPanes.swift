@@ -8,6 +8,7 @@ import SwiftUI
 /// the key that summons it.
 struct GeneralPane: View {
     @Bindable var settings: AppSettings
+    let store: ContainerStore
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchAtLoginError: String?
@@ -50,6 +51,34 @@ struct GeneralPane: View {
 
         SettingsGroup {
             SettingsRow(
+                "Check for image updates",
+                subtitle: "Marks containers whose image has a newer release.",
+                help: "Asks Docker Hub, GitHub and other registries directly from this Mac, every 6 hours. Nothing is pulled or changed on the NAS."
+            ) {
+                RowToggle(isOn: $settings.imageUpdateChecksEnabled)
+                    .onChange(of: settings.imageUpdateChecksEnabled) { _, enabled in
+                        if enabled { Task { await store.checkForUpdates() } }
+                    }
+            }
+            if settings.imageUpdateChecksEnabled {
+                RowDivider()
+                SettingsRow("Last checked", subtitle: updateCheckSummary) {
+                    if store.isCheckingForUpdates {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Check Now") { Task { await store.checkForUpdates() } }
+                            .controlSize(.small)
+                            .disabled(!settings.isConfigured)
+                    }
+                }
+                if let error = store.updateCheckError {
+                    RowNote(error.hint, symbol: "exclamationmark.triangle.fill", tint: .orange)
+                }
+            }
+        }
+
+        SettingsGroup {
+            SettingsRow(
                 "Global hotkey",
                 subtitle: "Click the shortcut to record a new one."
             ) {
@@ -63,6 +92,16 @@ struct GeneralPane: View {
                     tint: .orange
                 )
             }
+        }
+    }
+
+    private var updateCheckSummary: String {
+        guard let checked = store.lastUpdateCheck else { return "Not yet" }
+        let when = checked.formatted(.relative(presentation: .named))
+        switch store.availableUpdateCount {
+        case 0: return "\(when) · everything is current"
+        case 1: return "\(when) · 1 update available"
+        case let count: return "\(when) · \(count) updates available"
         }
     }
 
@@ -362,7 +401,7 @@ struct HistoryPane: View {
         SettingsGroup {
             SettingsRow(
                 "Recorded events",
-                subtitle: "Exits and restarts Ballast sees while it's running."
+                subtitle: "Exits, restarts and image updates Ballast sees while it's running."
             ) {
                 Text("\(store.history.count)")
                     .font(.system(size: 12))
@@ -376,7 +415,7 @@ struct HistoryPane: View {
 
         SettingsGroup("Recent") {
             if store.history.isEmpty {
-                RowPlaceholder("No downtime recorded yet.")
+                RowPlaceholder("Nothing recorded yet.")
             } else {
                 let recent = Array(store.history.reversed().prefix(8))
                 ForEach(Array(recent.enumerated()), id: \.element.id) { index, event in

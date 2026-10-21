@@ -153,6 +153,51 @@ shell. Anything broader than start/stop/restart would turn the sudoers grant
 back into unrestricted root, which is the thing the wrapper script exists to
 avoid.
 
+## Image updates
+
+A small blue arrow beside a container's name means its image has a newer
+release than the one it's running. Clicking the arrow opens the image's tags on
+Docker Hub, or its package page for other images on ghcr.io. The tooltip says
+which version is available and which is running, e.g. "Version 4.0.20.3014
+available — running 4.0.19.2979". The same link is in the row's right-click
+menu as **Open on Docker Hub**.
+
+How it decides:
+
+- The agent's read-only `images` subcommand reports the registry digest of the
+  image each container was created from. The Mac then asks the registry what
+  digest the tag points at now. Only a `HEAD` request is sent, which Docker Hub
+  doesn't count against its pull rate limit. If the digests match, the
+  container is current.
+- If the digests differ, Docker Hub's tag list names the new digest. LinuxServer
+  images use Docker Hub's list whichever registry they were pulled from
+  (`lscr.io`, `ghcr.io` or Docker Hub), since they carry the same digests on
+  all three.
+- LinuxServer rebuilds every image about weekly for base-image patches,
+  e.g. `4.0.20.3014-ls1` → `-ls2`. That's a **rebuild**, not a release: it
+  appears in the tooltip, but there's no arrow. When the new image can't be
+  named, any change of digest counts as an update.
+- Nothing is checked for images pinned by digest, images built on the NAS, or
+  private images. The tooltip says why.
+
+The registries are asked every 6 hours, and when a container is recreated,
+which is what Watchtower updating one looks like. A recreated container is
+compared again without asking the registries, so its arrow clears as soon as
+the new container appears. **Check Now** and the switch are under Settings →
+General. These checks are the only traffic Ballast sends anywhere other than the
+NAS and your services, and they go straight from the Mac. The NAS never
+contacts a registry, and nothing is pulled.
+
+Ballast doesn't update containers itself, on purpose. That would need the agent
+to run `docker pull` and `docker compose up` as root, from compose files your
+SSH user can edit. That's a way to root, and the wrapper script exists to
+prevent exactly that. Leave the updating to Watchtower, or run `docker compose`
+yourself.
+
+Update checks need the `images` subcommand. An agent installed before that
+existed makes Settings say "Run nas/deploy.sh again to update the agent on the
+NAS", and everything else keeps working.
+
 ## Hiding containers
 
 Right-click a container and choose **Hide from menu**. Hidden containers are
@@ -222,10 +267,19 @@ showing dismisses the menu, the way it does in any other menu.
 
 Ballast compares each poll with the last successful one, so a container that
 crashed at 03:00 and was restarted by Docker no longer leaves no trace. The
-clock-with-arrow button in the header opens **History**: exits, crash-restarts
-and starts, newest first and grouped by day, with "down for 4m" where both the
-exit and the next start were seen. A container's tooltip also shows its last
-exit. The log is a JSON file in `~/Library/Application Support/Ballast`, capped
+clock-with-arrow button in the header opens **History**: exits, crash-restarts,
+starts and image updates, newest first and grouped by day, with "down for 4m"
+where both the exit and the next start were seen. A container's tooltip also
+shows its last exit.
+
+An **update** is a container that comes back under the same name on a
+different image. That's what Watchtower leaves behind, and also `docker compose
+pull` followed by `up`. It's logged with the version before and after when the
+image labels one ("Updated 4.0.19.2979 → 4.0.20.3014"), and never notifies.
+Spotting one only reads the NAS, so it's logged even with image update checks
+turned off. Ballast compares each container with the last image it saw it on
+while running, so an update that happens while Ballast is quit isn't
+recorded. The log is a JSON file in `~/Library/Application Support/Ballast`, capped
 at 200 events and 30 days.
 
 A notification fires only for an exit with a **non-zero code or an
@@ -261,6 +315,7 @@ Labels in your compose files, so nothing has to be configured on the Mac:
 | `ballast.probe` | `false` to skip the HTTP check |
 | `ballast.hide` | `true` to keep it out of the menu |
 | `ballast.notify` | `false` to never notify about its exits (still recorded in History) |
+| `ballast.updates` | `false` to leave its image out of update checks |
 
 Without any labels, Ballast uses the container's published ports, preferring
 ones that look like web UIs and ignoring loopback-only bindings, which aren't
