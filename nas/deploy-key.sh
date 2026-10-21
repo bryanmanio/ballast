@@ -4,7 +4,7 @@
 # root-owned location, so key auth works without DSM's user home service.
 #
 #     ./nas/deploy-key.sh ballast-nas
-#     ./nas/deploy-key.sh ballast@nas.local ~/.ssh/id_ballast.pub
+#     ./nas/deploy-key.sh ballast-user@nas.local ~/.ssh/id_ballast.pub
 #
 # Password authentication is used for this one run. All the steps share a
 # single SSH connection, so you are asked for the password once (and once
