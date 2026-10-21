@@ -8,10 +8,17 @@ struct BallastApp: App {
     /// Owns the right-click menu on the status item. Held here so it lives as
     /// long as the app does.
     @State private var contextMenu = MenuBarContextMenu()
+    /// Owns the system-wide shortcut. A singleton because the Carbon
+    /// registration it wraps is process-wide whether we like it or not.
+    private let hotkeys = GlobalHotkeyCenter.shared
     /// Renders the menu's contents in an ordinary window as well, so the
     /// layout can be inspected and screenshotted without fighting the menu
     /// bar. Enable with `-BallastDebugWindow YES`.
     private let showsDebugWindow: Bool
+    /// Opens Settings at launch, so the panes can be worked on and
+    /// screenshotted without clicking through the menu bar. Enable with
+    /// `-BallastSettingsWindow YES`.
+    private let showsSettingsAtLaunch: Bool
     /// Whether setup is offered at launch. Decided here rather than in the
     /// scene, because `defaultLaunchBehavior` is read once when the scene
     /// graph is built.
@@ -71,6 +78,7 @@ struct BallastApp: App {
         BundledScripts.install()
 
         showsDebugWindow = UserDefaults.standard.bool(forKey: "BallastDebugWindow")
+        showsSettingsAtLaunch = UserDefaults.standard.bool(forKey: "BallastSettingsWindow")
 
         // Offered once, and never to an install that was already working
         // before setup existed. `-BallastShowOnboarding YES` forces it, which
@@ -93,6 +101,10 @@ struct BallastApp: App {
                 .onAppear {
                     contextMenu.openSettings = { openWindow(id: "settings") }
                     contextMenu.install()
+                    // The shortcut can only be registered once there is a
+                    // menu bar item for it to open.
+                    hotkeys.action = { MenuBarPresenter.toggle() }
+                    hotkeys.apply(settings.hotkey)
                 }
                 // Polling is driven from the label, not the menu's contents:
                 // with the window style those contents aren't created until
@@ -104,19 +116,17 @@ struct BallastApp: App {
         // per-row controls; the default menu style can't host one.
         .menuBarExtraStyle(.window)
 
-        // The same settings, in a window, for people who right-click the
-        // menu bar icon instead of opening the menu. Both paths render the
-        // one `SettingsView`, so they can't drift apart.
+        // Settings live in a window, the way a Mac app's do — the popover
+        // is too narrow for a source list, and this is the one surface both
+        // the gear button and the right-click menu open.
         Window("Ballast Settings", id: "settings") {
             SettingsView(settings: settings, store: store)
-                // Matches the menu's width, so the layout it was designed
-                // for — labels above fields — still holds here.
-                .frame(width: 340)
-                .frame(maxHeight: .infinity, alignment: .top)
         }
-        .defaultSize(width: 340, height: 520)
-        .windowResizability(.contentSize)
-        .defaultLaunchBehavior(.suppressed)
+        .defaultSize(width: 720, height: 520)
+        // The sidebar is the point of this window, so it's resizable down to
+        // the width that still keeps a label and its control on one line.
+        .windowResizability(.contentMinSize)
+        .defaultLaunchBehavior(showsSettingsAtLaunch ? .presented : .suppressed)
 
         // Setup, in the one place in the app with room for a line of shell
         // that mustn't wrap. Reachable afterwards from the menu's empty state.

@@ -417,7 +417,7 @@ private struct PageLayout<Content: View>: View {
         // need to read as separate instructions rather than one wall.
         VStack(spacing: 18) {
             if mark {
-                BallastMark()
+                BallastMark(size: 56)
                     .padding(.bottom, 2)
                     .stagger(0)
             }

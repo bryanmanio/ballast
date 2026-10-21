@@ -238,7 +238,9 @@ final class ContainerStore {
         guard pollTask == nil else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                await self?.refresh()
+                if self?.settings.autoRefreshEnabled == true {
+                    await self?.refresh()
+                }
                 guard let interval = self?.currentPollInterval else { return }
                 try? await Task.sleep(for: .seconds(interval))
             }
@@ -253,7 +255,11 @@ final class ContainerStore {
     /// Backs off after repeated failures so a sleeping NAS isn't hammered
     /// every 30 seconds all night.
     private var currentPollInterval: TimeInterval {
-        consecutiveFailures >= 3 ? min(120, settings.refreshInterval * 4) : settings.refreshInterval
+        // Paused, the loop still has to come round often enough to notice
+        // being switched back on, so it idles on a short tick instead of
+        // whatever interval it would have polled at.
+        guard settings.autoRefreshEnabled else { return 5 }
+        return consecutiveFailures >= 3 ? min(120, settings.refreshInterval * 4) : settings.refreshInterval
     }
 
     // MARK: - Refresh
