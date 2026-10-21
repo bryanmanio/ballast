@@ -12,8 +12,12 @@ struct BallastApp: App {
     /// layout can be inspected and screenshotted without fighting the menu
     /// bar. Enable with `-BallastDebugWindow YES`.
     private let showsDebugWindow: Bool
+    /// Whether setup is offered at launch. Decided here rather than in the
+    /// scene, because `defaultLaunchBehavior` is read once when the scene
+    /// graph is built.
+    private let showsOnboarding: Bool
 
-    private static let fixtureDefaultsSuite = "com.bryanmaniotakis.ballast.fixtures"
+    private static let fixtureDefaultsSuite = "com.mediumrare.ballast.fixtures"
 
     init() {
         // Launch with `-BallastUseFixtures YES` to drive the menu from
@@ -61,7 +65,20 @@ struct BallastApp: App {
             makeSource: makeSource
         )
 
+        // Copied out of the bundle at every launch, so the setup commands can
+        // name a path that survives the app being moved, updated, or run
+        // translocated straight from a download.
+        BundledScripts.install()
+
         showsDebugWindow = UserDefaults.standard.bool(forKey: "BallastDebugWindow")
+
+        // Offered once, and never to an install that was already working
+        // before setup existed. `-BallastShowOnboarding YES` forces it, which
+        // fixture mode needs: it fills in a destination, so `isConfigured` is
+        // already true there.
+        showsOnboarding = UserDefaults.standard.bool(forKey: "BallastShowOnboarding")
+            || (!settings.hasCompletedOnboarding && !settings.isConfigured)
+
         _settings = State(initialValue: settings)
         _store = State(initialValue: store)
     }
@@ -100,6 +117,15 @@ struct BallastApp: App {
         .defaultSize(width: 340, height: 520)
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
+
+        // Setup, in the one place in the app with room for a line of shell
+        // that mustn't wrap. Reachable afterwards from the menu's empty state.
+        Window("Set up Ballast", id: "onboarding") {
+            OnboardingView(settings: settings, store: store)
+        }
+        .defaultSize(width: 520, height: 470)
+        .windowResizability(.contentSize)
+        .defaultLaunchBehavior(showsOnboarding ? .presented : .suppressed)
 
         // Always declared so the scene graph has one concrete shape; only
         // presented at launch when the debug flag is set.

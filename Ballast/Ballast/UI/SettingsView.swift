@@ -54,7 +54,7 @@ struct SettingsView: View {
     private var connectionGroup: some View {
         SettingsGroup("Connection") {
             SettingsRow("SSH destination") {
-                RowField(text: $settings.sshDestination, prompt: "ballast@nas.local")
+                RowField(text: $settings.sshDestination, prompt: BundledScripts.placeholderDestination)
                     .onSubmit { runTest() }
             }
             RowDivider()

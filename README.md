@@ -34,11 +34,31 @@ it.
 
 ## Setup
 
+The first launch opens a setup window that walks through everything below, one
+page at a time, with each command ready to copy and the SSH destination you
+type filled into it. Making the DSM account is the one step with no command to
+run, so that page carries a screen recording of the wizard instead
+(`Ballast/Ballast/Resources/create-dsm-account.mp4`). The `nas/` scripts travel
+with the app and are copied to `~/Library/Application Support/Ballast/nas` at
+launch, so the commands it hands you run from any directory, keep working after
+the app is moved or updated, and need no repo checkout. If you skip the window,
+it's still behind **Set up Ballast…** in the menu, and the steps are here.
+
 ### 1. Set up key authentication
 
 Enable SSH on the NAS (Control Panel → Terminal & SNMP). The account you use
 must be in the **administrators** group — DSM refuses SSH logins for everyone
 else.
+
+A dedicated account is worth making rather than reusing your own. It has to be
+an administrator for SSH to work at all, but that is the only privilege it
+needs: SSH is not one of the entries under Control Panel → User → Applications,
+so every application there — DSM itself, File Station, SMB, AFP, FTP, WebDAV,
+rsync, SFTP — can be set to **Deny** and Ballast still works. It never
+transfers files (`deploy.sh` streams over the SSH session with `cat` rather
+than scp, since DSM doesn't enable the SFTP subsystem by default) and never
+touches the web UI. Keep your own admin account for DSM, and check SSH still
+connects after saving the permission changes.
 
 Ballast runs unattended, so it needs key authentication; it can't answer a
 password prompt. If you don't already have a key:
@@ -54,7 +74,7 @@ requires DSM's user home service, which creates a `homes` shared folder you
 may not want. To avoid it:
 
 ```sh
-./nas/deploy-key.sh ballast@nas.local ~/.ssh/id_ballast.pub
+./nas/deploy-key.sh ballast-user@nas.local ~/.ssh/id_ballast.pub
 ```
 
 This puts the key in `/etc/ssh/authorized_keys/<user>`, owned by root, and
@@ -96,7 +116,9 @@ refuses to install into a directory that isn't root-owned.
 
 ### 3. Point the app at the NAS
 
-Open Settings with the gear in the top right of the menu, and fill in:
+The setup window asks for the SSH destination on its second page and tests it
+on its last. To do it by hand, open Settings with the gear in the top right of
+the menu, and fill in:
 
 - **SSH destination** — `user@host`, or an alias from `~/.ssh/config`
 - **Local hostname** — used to build each service's URL (defaults to the host
@@ -210,6 +232,35 @@ namespace port to the container using it; Ballast then offers the owner's
 ports that no sibling has claimed. That last step is a guess — set
 `ballast.port` to be certain.
 
+## Releasing
+
+```sh
+./scripts/release.sh                 # signed, notarised Ballast-<version>.dmg in dist/
+./scripts/release.sh --skip-notarize # local check, no Apple round trip
+```
+
+It archives Release, exports with Developer ID, verifies the result, wraps it
+in a disk image with an `/Applications` alias, notarises it and staples the
+ticket. The checks before the build are the ones worth failing fast on: a
+Developer ID certificate for the team, notarytool credentials, the hardened
+runtime flag, and that `nas/` actually made it into the bundle.
+
+Two one-time pieces of setup, both account-bound — the script prints the exact
+command for each if it's missing:
+
+- a **Developer ID Application** certificate (Xcode → Settings → Accounts →
+  Manage Certificates → + ). An Apple Development certificate is not enough.
+- a notarytool keychain profile: `xcrun notarytool store-credentials
+  ballast-notary --apple-id … --team-id … --password <app-specific>`
+
+Skipping notarisation is only useful locally. An unnotarised build is refused
+by Gatekeeper on every Mac but the one that built it.
+
+The `/Applications` alias in the disk image isn't only convention: **Launch at
+login** uses `SMAppService`, which refuses to register an app that isn't
+properly installed, and an app left in Downloads runs translocated from a
+random read-only path.
+
 ## Development
 
 ```sh
@@ -220,22 +271,35 @@ open Ballast/Ballast.xcodeproj       # build and run
 Run the UI against sample data, with no NAS involved:
 
 ```sh
-defaults write com.bryanmaniotakis.ballast BallastUseFixtures -bool YES
-defaults write com.bryanmaniotakis.ballast BallastDebugWindow -bool YES
+defaults write com.mediumrare.ballast BallastUseFixtures -bool YES
+defaults write com.mediumrare.ballast BallastDebugWindow -bool YES
 ```
 
 The first drives the menu from `FixtureContainerSource`; the second also opens
 the menu's contents in an ordinary window, which is far easier to inspect and
 screenshot than a menu bar popover. Fixture mode keeps its settings in a
 separate defaults domain, so it can't disturb a real configuration. Turn both
-off with `defaults delete com.bryanmaniotakis.ballast`.
+off with `defaults delete com.mediumrare.ballast`.
+
+```sh
+defaults write com.mediumrare.ballast BallastShowOnboarding -bool YES
+```
+
+Forces the setup window open at every launch, which is otherwise offered once.
+Needed alongside fixtures, since those fill in an SSH destination and the
+window only offers itself when there isn't one.
 
 ### Layout
 
 - `Ballast/Ballast/Core` — all logic: transport, parsing, URL resolution,
   status assessment, downtime detection and history. No SwiftUI.
-- `Ballast/Ballast/UI` — the menu, rows, settings.
-- `nas/` — the agent script and its installer.
+- `Ballast/Ballast/UI` — the menu, rows, settings, setup.
+- `nas/` — the agent script and its installer. A build phase copies it into
+  `Ballast.app/Contents/Resources/nas`, and `BundledScripts.install` copies it
+  out again to `~/Library/Application Support/Ballast/nas` at every launch, so
+  the setup window can hand out a path to `deploy.sh` that works from any
+  directory and outlives the bundle it shipped in — a downloaded app runs
+  translocated from a random read-only path until it's moved to Applications.
 - `Tests/` — unit tests over `Core`.
 
 `Package.swift` points a SwiftPM target at `Ballast/Ballast/Core` so
