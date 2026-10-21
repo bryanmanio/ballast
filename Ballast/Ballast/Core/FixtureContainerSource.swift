@@ -33,12 +33,40 @@ struct FixtureContainerSource: ContainerSource {
         try? await Task.sleep(for: .milliseconds(400))
     }
 
+    /// Every container is on its registry's current image except the ones
+    /// `remoteTags` moves on, and scrutiny, which stands in for an image
+    /// built on the NAS.
+    func images() async throws -> [String: ContainerImage] {
+        try? await Task.sleep(for: delay)
+        return Dictionary(uniqueKeysWithValues: Self.containers.map { container in
+            let imageID = "sha256:image-\(container.name)"
+            guard container.name != "scrutiny", let reference = ImageReference(container.image) else {
+                return (container.id, ContainerImage(imageID: imageID, digests: []))
+            }
+            return (container.id, ContainerImage(imageID: imageID, digests: [Self.localDigest(for: reference.repository)]))
+        })
+    }
+
+    /// Repositories whose tag has moved on in `FixtureImageRegistry`, with the
+    /// version tag the registry names the new image by, if any. One of each
+    /// update state: a release, a LinuxServer rebuild, and an unnamed image.
+    static let remoteTags: [String: String?] = [
+        "linuxserver/sonarr": "4.0.20.3014-ls1",
+        "linuxserver/radarr": "5.14.0.9383-ls246",
+        "linuxserver/transmission": "4.0.6-r1-ls280",
+        "vaultwarden/server": nil,
+    ]
+
+    static func localDigest(for repository: String) -> String {
+        "sha256:\(repository)-local"
+    }
+
     func fetch() async throws -> AgentListOutput {
         try? await Task.sleep(for: delay)
         return AgentListOutput(
             protocolVersion: 1,
             containers: simulatesCrash ? Self.crashing(at: Self.clock.elapsed()) : Self.containers,
-            warnings: ["skipped 1 of 13 containers: Error: No such object: 3f8a1c"]
+            warnings: ["skipped 1 of 15 containers: Error: No such object: 3f8a1c"]
         )
     }
 
@@ -113,6 +141,20 @@ struct FixtureContainerSource: ContainerSource {
             startedDaysAgo: 31
         ),
         make(
+            name: "sonarr", state: .running,
+            image: "lscr.io/linuxserver/sonarr:latest",
+            published: [binding(8989)],
+            labels: ["org.opencontainers.image.version": "4.0.19.2979-ls300"],
+            startedDaysAgo: 6
+        ),
+        make(
+            name: "radarr", state: .running,
+            image: "lscr.io/linuxserver/radarr:latest",
+            published: [binding(7878)],
+            labels: ["org.opencontainers.image.version": "5.14.0.9383-ls245"],
+            startedDaysAgo: 6
+        ),
+        make(
             name: "jellyfin", state: .running,
             image: "jellyfin/jellyfin:10.9.11",
             published: [binding(8096), binding(8920), binding(7359, transport: "udp")],
@@ -134,6 +176,7 @@ struct FixtureContainerSource: ContainerSource {
             name: "transmission", state: .exited, exitCode: 137, oomKilled: true,
             image: "linuxserver/transmission:latest",
             published: [binding(9091), binding(51413)],
+            labels: ["org.opencontainers.image.version": "4.0.5-r1-ls250"],
             startedDaysAgo: 2, finishedHoursAgo: 11
         ),
         make(
@@ -157,6 +200,9 @@ struct FixtureContainerSource: ContainerSource {
         return [
             DowntimeEvent(containerName: "transmission", kind: .exited, at: ago(hours: 11),
                           exitCode: 137, oomKilled: true, image: "linuxserver/transmission:latest"),
+            DowntimeEvent(containerName: "sonarr", kind: .updated, at: ago(hours: 13),
+                          image: "lscr.io/linuxserver/sonarr:latest",
+                          fromVersion: "4.0.18.2970-ls299", toVersion: "4.0.19.2979-ls300"),
             DowntimeEvent(containerName: "uptime-kuma", kind: .crashRestarted, at: ago(hours: 3),
                           exitCode: 1, image: "louislam/uptime-kuma:1"),
             DowntimeEvent(containerName: "immich-postgres", kind: .exited, at: ago(hours: 30),

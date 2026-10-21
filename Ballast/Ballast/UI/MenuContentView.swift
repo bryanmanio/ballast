@@ -380,6 +380,7 @@ struct MenuContentView: View {
             isBusy: store.isBusy(container),
             lastExit: store.lastExit(for: container.name),
             isMuted: store.mutedContainerNames.contains(container.name),
+            update: store.updateStatus(for: container),
             perform: { action in
                 Task { await store.perform(action, on: container) }
             },

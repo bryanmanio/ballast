@@ -34,6 +34,14 @@ struct BallastErrorTests {
         #expect(classify("", exitCode: 127) == .agentMissing)
     }
 
+    @Test("an agent that doesn't know a subcommand asks to be redeployed")
+    func agentOutdated() {
+        #expect(classify(
+            "ballast: usage: ballast-agent {list|check|version|start|stop|restart <container>}",
+            exitCode: 2
+        ) == .agentOutdated)
+    }
+
     @Test("SSH-level problems map to their own cases")
     func sshProblems() {
         #expect(classify("Host key verification failed.", exitCode: 255) == .hostKeyUnverified)
@@ -74,7 +82,7 @@ struct BallastErrorTests {
         let all: [BallastError] = [
             .notConfigured, .hostUnreachable(detail: ""), .hostKeyUnverified,
             .sshAuthFailed(detail: ""), .sshFailed(exitCode: 255, detail: ""), .timedOut,
-            .agentMissing, .sudoDenied, .dockerNotFound, .dockerUnavailable,
+            .agentMissing, .agentOutdated, .sudoDenied, .dockerNotFound, .dockerUnavailable,
             .agentFailed(exitCode: 1, detail: ""), .parse(.missingHeader),
         ]
         for error in all {

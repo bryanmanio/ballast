@@ -10,7 +10,8 @@
 # This script exists so the sudoers grant can be scoped to one auditable,
 # narrow command surface instead of to the whole docker binary.
 #
-# Most subcommands only read. `start`, `stop` and `restart` change container
+# Most subcommands only read — `list`, `images`, `check`, `version`. `start`,
+# `stop` and `restart` change container
 # state, and are the only mutating operations here. Each validates its
 # argument against the live container list before passing it to docker, so a
 # caller cannot smuggle flags or arbitrary text through to the daemon.
@@ -119,6 +120,63 @@ cmd_list() {
     echo "#end $count"
 }
 
+# Which image each container was created from, and that image's registry
+# digests, so the app can ask the registry itself whether the tag has moved
+# on. Read-only: nothing is pulled, and the registry is never contacted from
+# the NAS. Two kinds of record, tab-separated JSON like `list`:
+#
+#     "container"  <container id>  <image id>
+#     "image"      <image id>      <RepoDigests>
+#
+# Separate from `list` rather than appended to it, so an app that knows about
+# images still reads the containers from an agent that doesn't.
+IMAGES_CONTAINER_FORMAT='{{json "container"}}{{"\t"}}{{json .Id}}{{"\t"}}{{json .Image}}'
+IMAGES_IMAGE_FORMAT='{{json "image"}}{{"\t"}}{{json .Id}}{{"\t"}}{{json .RepoDigests}}'
+
+# Inspects every object in one call, falling back to one call each when the
+# batch fails — which it does if any single object has gone away since it was
+# listed. Objects that fail on their own are left out.
+inspect_each() {
+    kind=$1
+    format=$2
+    shift 2
+    if output=$("$DOCKER" "$kind" inspect --format "$format" "$@" 2>/dev/null); then
+        printf '%s\n' "$output"
+        return 0
+    fi
+    for object in "$@"; do
+        "$DOCKER" "$kind" inspect --format "$format" "$object" 2>/dev/null
+    done
+    return 0
+}
+
+cmd_images() {
+    ids=$("$DOCKER" ps --all --quiet --no-trunc 2>/dev/null) || die "docker-unavailable" 4
+
+    echo "#ballast $PROTOCOL_VERSION"
+
+    count=0
+    if [ -n "$ids" ]; then
+        # shellcheck disable=SC2086 -- intentional word splitting over ids
+        containers=$(inspect_each container "$IMAGES_CONTAINER_FORMAT" $ids)
+        image_ids=$(printf '%s\n' "$containers" | cut -f3 | tr -d '"' | sort -u)
+
+        images=""
+        if [ -n "$image_ids" ]; then
+            # shellcheck disable=SC2086 -- image ids are sha256:<hex>, no spaces
+            images=$(inspect_each image "$IMAGES_IMAGE_FORMAT" $image_ids)
+        fi
+
+        records=$(printf '%s\n%s\n' "$containers" "$images" | grep -v '^$')
+        if [ -n "$records" ]; then
+            printf '%s\n' "$records"
+            count=$(printf '%s\n' "$records" | wc -l | tr -d ' ')
+        fi
+    fi
+
+    echo "#end $count"
+}
+
 # Resolve a caller-supplied container reference to a real container ID.
 #
 # The caller is only ever allowed to name a container that currently exists.
@@ -167,9 +225,10 @@ cmd_check() {
 
 case "${1:-}" in
     list)    cmd_list ;;
+    images)  cmd_images ;;
     check)   cmd_check ;;
     version) echo "$PROTOCOL_VERSION" ;;
     start|stop|restart)
              cmd_lifecycle "$1" "${2:-}" ;;
-    *)       die "usage: ballast-agent {list|check|version|start|stop|restart <container>}" 2 ;;
+    *)       die "usage: ballast-agent {list|images|check|version|start|stop|restart <container>}" 2 ;;
 esac
