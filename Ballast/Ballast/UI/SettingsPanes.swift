@@ -106,7 +106,7 @@ struct ConnectionPane: View {
                 "SSH destination",
                 subtitle: "user@host, or a ~/.ssh/config alias."
             ) {
-                RowField(text: $settings.sshDestination, prompt: "ballast@nas.local")
+                RowField(text: $settings.sshDestination, prompt: BundledScripts.placeholderDestination)
                     .onSubmit { runTest() }
             }
             RowDivider()

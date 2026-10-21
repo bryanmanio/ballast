@@ -15,6 +15,9 @@ Package.resolved
 @eaDir/
 *.swp
 
+# Release artefacts
+dist/
+
 # Netlify CLI local state
 .netlify/
 
