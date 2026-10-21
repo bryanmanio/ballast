@@ -21,17 +21,17 @@ struct MenuContentView: View {
     /// The popover caps its list; the debug preview window doesn't need to.
     var maxListHeight: CGFloat = 460
 
+    @Environment(\.openWindow) private var openWindow
+
     @State private var searchText = ""
     /// Measured height of the list's contents. A ScrollView has no intrinsic
     /// height, so inside a popover — which sizes itself to its content — it
     /// collapses to nothing unless given an explicit height.
     @State private var contentHeight: CGFloat = 0
-    @State private var showingSettings = false
     @State private var showingHistory = false
     @State private var showingSearch = false
     @State private var scope: ContainerScope = .running
     @FocusState private var searchFocused: Bool
-    @Environment(\.openWindow) private var openWindow
 
     private var hasStopped: Bool { !store.stoppedContainers.isEmpty }
 
@@ -40,11 +40,7 @@ struct MenuContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if showingSettings {
-                paneHeader("Settings") { showingSettings = false }
-                Divider()
-                SettingsView(settings: settings, store: store)
-            } else if showingHistory {
+            if showingHistory {
                 paneHeader("History") { showingHistory = false }
                 Divider()
                 HistoryView(store: store)
@@ -163,7 +159,11 @@ struct MenuContentView: View {
                     }
 
                     HeaderButton(symbol: "gearshape", help: "Settings") {
-                        withAnimation(.easeInOut(duration: 0.15)) { showingSettings = true }
+                        // Settings are a window now, not a pane: a source
+                        // list doesn't fit in 340 points, and an agent app
+                        // isn't frontmost, so it has to be brought forward.
+                        NSApp.activate(ignoringOtherApps: true)
+                        openWindow(id: "settings")
                     }
                 }
             }

@@ -1,61 +1,79 @@
 import SwiftUI
 
-/// The app mark, as drawn on the site (`site/favicon.svg`): a white ring with
-/// a waterline across it, on a blue gradient tile.
+/// The Ballast mark — the same drawing as the favicon on ballast.ing, so the
+/// app and the site are recognisably one thing.
 ///
-/// Redrawn with shapes rather than shipped as an asset so it stays sharp at
-/// any size and picks up the same geometry the SVG uses — the numbers below
-/// are its 32-unit viewBox, scaled.
+/// Redrawn rather than imported as a bitmap: it's three shapes, and a vector
+/// stays sharp at every size the app asks for. The geometry is kept in the
+/// favicon's own 32-unit grid and scaled from there, so the two can't drift.
 struct BallastMark: View {
-    var size: CGFloat = 56
+    /// Edge length. The mark is square.
+    var size: CGFloat = 72
+    /// The rounded square behind the glyph.
+    var showsBackground = true
 
-    /// One unit of the mark's 32×32 coordinate space.
-    private var unit: CGFloat { size / 32 }
-    private var ring: CGFloat { 16.5 * unit }
-
-    private static let top = Color(red: 0.231, green: 0.494, blue: 0.878)
-    private static let bottom = Color(red: 0.090, green: 0.282, blue: 0.608)
+    private var scale: CGFloat { size / 32 }
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 7.5 * unit, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Self.top, Self.bottom],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+            if showsBackground {
+                RoundedRectangle(cornerRadius: 7.5 * scale, style: .continuous)
+                    .fill(Self.gradient)
+            }
 
+            // The hull: a ring whose outer edge is r=8.25 and inner r=6.15.
             Circle()
-                .strokeBorder(.white.opacity(0.95), lineWidth: 2.1 * unit)
-                .frame(width: ring, height: ring)
+                .strokeBorder(.white, lineWidth: 2.1 * scale)
+                .frame(width: 16.5 * scale, height: 16.5 * scale)
 
-            // The waterline: the part of the same circle below y=17.5.
-            Circle()
-                .fill(.white.opacity(0.95))
-                .frame(width: ring, height: ring)
-                .mask(alignment: .bottom) {
-                    Rectangle().frame(height: 6.75 * unit)
-                }
+            // The water it sits in: the lower segment of that same circle.
+            Waterline()
+                .fill(.white)
+                .frame(width: 16.5 * scale, height: 16.5 * scale)
         }
+        .opacity(0.95)
         .frame(width: size, height: size)
-        // Pure black or pure white at 10%, never a tinted neutral: a tinted
-        // edge picks up the surface behind it and reads as dirt.
-        .overlay {
-            RoundedRectangle(cornerRadius: 7.5 * unit, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.1))
-        }
-        .shadow(color: .black.opacity(0.22), radius: 7 * unit / 2, y: 1.5 * unit)
         .accessibilityHidden(true)
+    }
+
+    /// Top to bottom, as on the site.
+    static let gradient = LinearGradient(
+        colors: [Color(red: 0.231, green: 0.494, blue: 0.878),
+                 Color(red: 0.090, green: 0.282, blue: 0.608)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    /// The part of a circle below its load line — the one thing ballast is
+    /// for. Cut 1.5 units below centre, as the favicon does.
+    private struct Waterline: Shape {
+        func path(in rect: CGRect) -> Path {
+            let radius = min(rect.width, rect.height) / 2
+            let depth = radius * (1.5 / 8.25)
+            let center = CGPoint(x: rect.midX, y: rect.midY)
+            let halfChord = (radius * radius - depth * depth).squareRoot()
+            let angle = atan2(depth, halfChord)
+
+            var path = Path()
+            path.move(to: CGPoint(x: center.x - halfChord, y: center.y + depth))
+            path.addArc(
+                center: center,
+                radius: radius,
+                startAngle: .radians(.pi - angle),
+                endAngle: .radians(angle),
+                clockwise: true
+            )
+            path.closeSubpath()
+            return path
+        }
     }
 }
 
 #Preview {
     HStack(spacing: 16) {
+        BallastMark(size: 128)
+        BallastMark(size: 72)
         BallastMark(size: 32)
-        BallastMark(size: 56)
-        BallastMark(size: 96)
     }
-    .padding(32)
+    .padding(24)
 }

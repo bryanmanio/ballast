@@ -17,3 +17,9 @@ Package.resolved
 
 # Release artefacts
 dist/
+
+# Netlify CLI local state
+.netlify/
+
+# Personal Claude Code settings
+.claude/settings.local.json
