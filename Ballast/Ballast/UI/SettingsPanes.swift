@@ -132,6 +132,7 @@ struct ConnectionPane: View {
 
     @State private var test: TestState = .idle
     @State private var showAdvanced = false
+    @Environment(\.openWindow) private var openWindow
 
     enum TestState {
         case idle, running
@@ -175,7 +176,27 @@ struct ConnectionPane: View {
             RowNote("For when you're away from home — a Tailscale name keeps the same menu working off your network.")
         }
 
+        SettingsGroup("Setup") {
+            SettingsRow(
+                "Onboarding",
+                subtitle: "Walk through first-run setup again."
+            ) {
+                Button("Reset Onboarding") { resetOnboarding() }
+                    .controlSize(.small)
+            }
+        }
+
         advanced
+    }
+
+    /// Clears the "already offered" flag and opens the setup window straight
+    /// away: on its own the flag only matters at launch, and only to an
+    /// install with no destination yet, so a configured one would never see
+    /// setup again without this.
+    private func resetOnboarding() {
+        settings.hasCompletedOnboarding = false
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "onboarding")
     }
 
     private var advanced: some View {

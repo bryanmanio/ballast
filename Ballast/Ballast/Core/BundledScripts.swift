@@ -20,7 +20,12 @@ enum BundledScripts {
     /// An IP rather than a hostname: it teaches the `account@address` shape
     /// without anyone having to wonder whether `nas.local` is a literal they
     /// are supposed to already have.
-    static let placeholderDestination = "ballast-user@192.168.1.10"
+    static let placeholderDestination = "\(placeholderUser)@\(placeholderHost)"
+    /// The two halves, for setup, which asks for them separately. The user is
+    /// also the name setup asks for the DSM account to be given, so the field
+    /// can start filled in rather than as an example.
+    static let placeholderUser = "ballast-user"
+    static let placeholderHost = "192.168.1.10"
 
     /// Everything `nas/` needs to work: `deploy.sh` and `deploy-key.sh` stream
     /// their siblings over the connection, so the directory only works whole.
@@ -107,9 +112,9 @@ enum BundledScripts {
         case .installAgent:
             return "\(script("deploy.sh", installed, resourceURL)) \(shellQuoted(target))"
         case .verify:
-            // The same line install.sh prints when it finishes, and the same
-            // check the app itself makes.
-            return "ssh \(shellQuoted(target)) sudo -n \(SSHContainerSource.defaultAgentPath) check"
+            // The same check the app itself makes, with the key setup made —
+            // which ssh wouldn't offer unprompted.
+            return "ssh -i \(SSHContainerSource.setupKeyPath) \(shellQuoted(target)) sudo -n \(SSHContainerSource.defaultAgentPath) check"
         }
     }
 

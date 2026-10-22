@@ -126,6 +126,42 @@ struct SSHContainerSourceTests {
         #expect(args.contains { $0.contains("accept-new") } == false)
     }
 
+    @Test("offers setup's key ahead of ssh's defaults, before the destination")
+    func offersSetupKey() throws {
+        let args = SSHContainerSource.sshArguments(
+            destination: "bryan@nas", agentPath: "/usr/local/bin/ballast-agent", subcommand: "list",
+            identityFiles: ["~/.ssh/id_ballast", "~/.ssh/id_ed25519"]
+        )
+        let setupKey = try #require(args.firstIndex(of: "IdentityFile=~/.ssh/id_ballast"))
+        let defaultKey = try #require(args.firstIndex(of: "IdentityFile=~/.ssh/id_ed25519"))
+        let destination = try #require(args.firstIndex(of: "bryan@nas"))
+        #expect(setupKey < defaultKey)
+        #expect(defaultKey < destination)
+        #expect(args[setupKey - 1] == "-o")
+    }
+
+    @Test("names no keys when setup's key is missing, leaving ssh its own defaults")
+    func noSetupKey() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appending(path: "ballast-no-key-\(UUID().uuidString)").path
+        #expect(SSHContainerSource.identityFiles(home: home).isEmpty)
+    }
+
+    @Test("names ssh's defaults alongside setup's key, so they keep working")
+    func keepsDefaults() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appending(path: "ballast-key-\(UUID().uuidString)")
+        let ssh = home.appending(path: ".ssh")
+        try FileManager.default.createDirectory(at: ssh, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        FileManager.default.createFile(atPath: ssh.appending(path: "id_ballast").path, contents: Data())
+
+        let files = SSHContainerSource.identityFiles(home: home.path)
+        #expect(files.first == "~/.ssh/id_ballast")
+        #expect(files.contains("~/.ssh/id_ed25519"))
+        #expect(files.contains("~/.ssh/id_rsa"))
+    }
+
     @Test("the remote command is the agent, with the destination before it")
     func remoteCommandShape() throws {
         let args = SSHContainerSource.sshArguments(
