@@ -178,7 +178,16 @@ struct MenuContentView: View {
                         action: toggleSearch
                     )
 
-                    RefreshButton(store: store)
+                    RefreshButton(
+                        help: "Refresh now (⌘R)",
+                        shortcut: KeyboardShortcut("r"),
+                        isBusy: store.isRefreshing
+                    ) {
+                        await store.refresh()
+                        // A checkmark after a failed refresh would be a lie;
+                        // the error banner already says what went wrong.
+                        return store.lastError == nil
+                    }
 
                     HeaderButton(
                         symbol: "clock.arrow.circlepath",
@@ -505,8 +514,17 @@ private struct ScopeControl: View {
 /// refresh takes, always finishing the turn it's on so it never stops at an
 /// odd angle, then morphs it into a checkmark for a moment before the arrow
 /// comes back.
-private struct RefreshButton: View {
-    let store: ContainerStore
+///
+/// Also setup's retry, so testing the connection again answers the same way
+/// refreshing does.
+struct RefreshButton: View {
+    let help: String
+    var shortcut: KeyboardShortcut?
+    /// Work the button didn't start, which dims it rather than spinning it.
+    var isBusy = false
+    /// The work itself; `true` if it succeeded, which is what earns the
+    /// checkmark.
+    let action: () async -> Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -515,6 +533,7 @@ private struct RefreshButton: View {
     /// Whole turns only, so a stopped arrow is always upright.
     @State private var turns: Double = 0
     @State private var isAwaitingRefresh = false
+    @State private var succeeded = false
 
     /// Linear, so back-to-back turns join into one constant spin.
     private static let turnDuration = 0.8
@@ -528,14 +547,14 @@ private struct RefreshButton: View {
     private static let ringLift: CGFloat = 1.14
 
     var body: some View {
-        HeaderButton(glyph: glyph, help: "Refresh now (⌘R)", shortcut: KeyboardShortcut("r")) {
+        HeaderButton(glyph: glyph, help: help, shortcut: shortcut) {
             Task { await refresh() }
         }
-        .disabled(store.isRefreshing || phase != .idle)
+        .disabled(isBusy || phase != .idle)
         // A refresh nobody clicked for (opening the menu, the timer) dims the
         // button as before. One that was asked for spins at full strength:
         // dimming it would hide the very feedback the spin is there to give.
-        .opacity(store.isRefreshing && phase == .idle ? 0.4 : 1)
+        .opacity(isBusy && phase == .idle ? 0.4 : 1)
         .task(id: phase) {
             guard phase == .done else { return }
             try? await Task.sleep(for: Self.checkmarkHold)
@@ -563,7 +582,7 @@ private struct RefreshButton: View {
         phase = .spinning
         isAwaitingRefresh = true
         if !reduceMotion { spinOneTurn() }
-        await store.refresh()
+        succeeded = await action()
         isAwaitingRefresh = false
         // Without the spin there's no turn to wait out.
         if reduceMotion { settle() }
@@ -580,10 +599,10 @@ private struct RefreshButton: View {
     }
 
     private func settle() {
-        // A checkmark after a failed refresh would be a lie; the error banner
-        // already says what went wrong, so just put the arrow back.
+        // A failure puts the arrow straight back: the caller is the one that
+        // says what went wrong.
         withAnimation(Self.morph) {
-            phase = store.lastError == nil ? .done : .idle
+            phase = succeeded ? .done : .idle
         }
     }
 }

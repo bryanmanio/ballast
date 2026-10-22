@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// First-run setup, as four pages: what Ballast is, SSH access, the agent, and
-/// a test that ends by listing what it found.
+/// First-run setup: what Ballast is, what has to be on in DSM, the account,
+/// where to connect, a key and its authorisation, the agent, and a test that
+/// ends by listing what it found.
 ///
 /// The window exists because the commands do. Setup is three lines of shell,
 /// and a line of shell that wraps twice in a 340pt popover is a line nobody
@@ -28,7 +29,7 @@ struct OnboardingView: View {
     static let width: CGFloat = 520
 
     enum Page: Int, CaseIterable {
-        case welcome, account, access, agent, test
+        case welcome, prerequisites, account, access, key, authorise, agent, test
     }
 
     var body: some View {
@@ -37,9 +38,31 @@ struct OnboardingView: View {
                 Group {
                     switch page {
                     case .welcome: WelcomePage()
+                    case .prerequisites: PrerequisitesPage()
                     case .account: AccountPage()
-                    case .access: AccessPage(settings: settings) { turn(to: .agent) }
-                    case .agent: AgentPage(destination: settings.sshDestination)
+                    case .access: AccessPage(settings: settings) { turn(to: .key) }
+                    case .key:
+                        CommandPage(
+                            title: "Make a key",
+                            command: BundledScripts.command(.keygen, destination: settings.sshDestination),
+                            note: "Leave the passphrase empty when it asks."
+                        )
+                    case .authorise:
+                        CommandPage(
+                            title: "Authorise the key",
+                            command: BundledScripts.command(.deployKey, destination: settings.sshDestination),
+                            note: "Keep another SSH session open while it runs."
+                        )
+                    case .agent:
+                        // The command carries the script's full path, so it
+                        // does not matter where Terminal happens to be — which
+                        // is the first thing anyone wonders when handed a
+                        // script to run.
+                        CommandPage(
+                            title: "Install the agent",
+                            command: BundledScripts.command(.installAgent, destination: settings.sshDestination),
+                            note: "It works from any folder. DSM asks for your password once."
+                        )
                     case .test: TestPage(settings: settings, store: store)
                     }
                 }
@@ -112,12 +135,9 @@ private struct WelcomePage: View {
             title: "Welcome to Ballast",
             subtitle: "The fastest way to view, stop, or restart the containers on your NAS."
         ) {
+            // What it needs on the NAS is the next page, where it's something
+            // to act on rather than a footnote to remember.
             MenuPreview()
-
-            // The administrator account it needs is explained on the next
-            // page, where it's something to act on rather than remember.
-            Caption("You'll need SSH turned on and Container Manager running on the NAS.")
-                .stagger(6)
         }
     }
 }
@@ -165,21 +185,93 @@ private struct MenuPreview: View {
     }
 }
 
+/// The two switches in DSM that everything after this depends on. A page of
+/// their own rather than a caption on the welcome: each is something to go and
+/// do, so each gets a row that says where to find it.
+private struct PrerequisitesPage: View {
+    var body: some View {
+        PageLayout(title: "Before you start", subtitle: "Two things need to be on in DSM.") {
+            VStack(spacing: 8) {
+                PrerequisiteRow(
+                    symbol: "terminal.fill",
+                    tint: .teal,
+                    title: "SSH service",
+                    location: "Control Panel → Terminal & SNMP → Enable SSH service"
+                )
+                .stagger(1)
+                PrerequisiteRow(
+                    symbol: "shippingbox.fill",
+                    tint: .blue,
+                    title: "Container Manager",
+                    location: "Installed and running, from Package Center"
+                )
+                .stagger(2)
+            }
+            .frame(width: 380)
+        }
+    }
+}
+
+private struct PrerequisiteRow: View {
+    let symbol: String
+    let tint: Color
+    let title: String
+    let location: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(tint.gradient, in: .rect(cornerRadius: 7))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                Text(location)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.leading)
+
+            Spacer(minLength: 8)
+
+            // A checkmark, not a switch: a switch is a control, and one that
+            // doesn't flip reads as broken. This only says what's needed.
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(.green)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.primary.opacity(0.06))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title) needs to be on. \(location)")
+    }
+}
+
 /// Making the account is the one step that happens in DSM rather than in
 /// Terminal, so it gets a recording instead of a command: there is no line to
 /// paste, only a path through a wizard.
 private struct AccountPage: View {
     var body: some View {
-        PageLayout(title: "Create an administrator account") {
-            VStack(spacing: 7) {
-                StepLabel("In DSM: Control Panel → User & Group → Create")
-                LoopingVideo(
-                    resource: "create-dsm-account",
-                    width: 420,
-                    aspectRatio: 940.0 / 604.0,
-                    title: "Creating the account in DSM"
-                )
-            }
+        PageLayout(
+            title: "Create an administrator account",
+            // A name chosen for them, so the next page can fill it in rather
+            // than ask them to remember and retype it exactly.
+            subtitle: "In DSM: Control Panel → User & Group → Create. Name it \(BundledScripts.placeholderUser)."
+        ) {
+            LoopingVideo(
+                resource: "create-dsm-account",
+                width: 420,
+                aspectRatio: 940.0 / 604.0,
+                title: "Creating the account in DSM"
+            )
             .stagger(1)
         }
     }
@@ -187,53 +279,96 @@ private struct AccountPage: View {
 
 private struct AccessPage: View {
     @Bindable var settings: AppSettings
-    /// The field takes focus on this page, which swallows Return from the
+    /// The fields take focus on this page, which swallows Return from the
     /// default button — so Return has to mean "continue" here too, or typing
     /// a destination and pressing it does nothing at all.
     let onSubmit: () -> Void
 
+    /// Asked for as two halves rather than one `user@host`: a DSM username on
+    /// its own is the natural thing to type, and it fails a page later as an
+    /// unreachable host named after the account.
+    @State private var username: String
+    @State private var host: String
+    @FocusState private var focus: Half?
+
+    private enum Half { case username, host }
+
+    init(settings: AppSettings, onSubmit: @escaping () -> Void) {
+        self.settings = settings
+        self.onSubmit = onSubmit
+        let destination = settings.sshDestination.trimmingCharacters(in: .whitespaces)
+        if destination.isEmpty {
+            // The name the account page asked for, so only the address is
+            // left to type.
+            _username = State(initialValue: BundledScripts.placeholderUser)
+            _host = State(initialValue: "")
+        } else if let at = destination.lastIndex(of: "@") {
+            _username = State(initialValue: String(destination[..<at]))
+            _host = State(initialValue: String(destination[destination.index(after: at)...]))
+        } else {
+            // No account named: an ssh config alias, or a bare host.
+            _username = State(initialValue: "")
+            _host = State(initialValue: destination)
+        }
+    }
+
     var body: some View {
-        PageLayout(title: "Connect over SSH") {
-            Field(
-                // Not "sign in": nothing signs in here. The field records
-                // where to connect, and both halves of that — which account,
-                // and which machine — have to be spelled out or the format
-                // is a guess. "Exact" because a DSM username is what it is,
-                // and a near miss fails as an authentication error later,
-                // a page away from the cause.
-                label: "The exact username you made in DSM, at your NAS's IP or name",
-                text: $settings.sshDestination,
-                onSubmit: onSubmit
-            )
+        // "Exact" because a DSM username is what it is, and a near miss fails
+        // as an authentication error later, a page away from the cause.
+        PageLayout(
+            title: "Connect over SSH",
+            subtitle: "Type your NAS's IP or name. The username is the account you just created."
+        ) {
+            HStack(spacing: 6) {
+                HalfField(text: $username, prompt: BundledScripts.placeholderUser)
+                    .focused($focus, equals: .username)
+                    .onSubmit { focus = .host }
+                Text(verbatim: "@")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                HalfField(text: $host, prompt: BundledScripts.placeholderHost)
+                    .focused($focus, equals: .host)
+                    .onSubmit(onSubmit)
+            }
             .stagger(1)
+        }
+        // Straight to the half that's still empty, which on a first run is
+        // the address: the username arrives filled in.
+        .onAppear {
+            if !trimmedUsername.isEmpty && trimmedHost.isEmpty { focus = .host }
+        }
+        .onChange(of: username) { save() }
+        .onChange(of: host) { save() }
+    }
 
-            Step(
-                label: "Make a key — leave the passphrase empty",
-                command: BundledScripts.command(.keygen, destination: settings.sshDestination)
-            )
-            .stagger(2)
+    private var trimmedUsername: String { username.trimmingCharacters(in: .whitespaces) }
+    private var trimmedHost: String { host.trimmingCharacters(in: .whitespaces) }
 
-            Step(
-                label: "Authorise it — keep another SSH session open",
-                command: BundledScripts.command(.deployKey, destination: settings.sshDestination)
-            )
-            .stagger(3)
+    /// Only a whole destination is saved. A username with no host yet is
+    /// saved as nothing, rather than as a host named after the account.
+    private func save() {
+        settings.sshDestination = switch (trimmedUsername.isEmpty, trimmedHost.isEmpty) {
+        case (false, false): "\(trimmedUsername)@\(trimmedHost)"
+        case (true, _): trimmedHost
+        case (false, true): ""
         }
     }
 }
 
-private struct AgentPage: View {
-    let destination: String
+/// One command per page: a title for what it does, the one instruction every
+/// command shares, and the caveat that matters underneath — where it's read
+/// after the copy, not instead of it.
+private struct CommandPage: View {
+    let title: String
+    let command: String
+    let note: String
 
     var body: some View {
-        PageLayout(title: "Install the agent") {
-            Step(
-                // The command carries the script's full path, so it does not
-                // matter where Terminal happens to be — which is the first
-                // thing anyone wonders when handed a script to run.
-                label: "Paste into Terminal from any folder — DSM asks for your password once",
-                command: BundledScripts.command(.installAgent, destination: destination)
-            )
+        PageLayout(title: title, subtitle: "Copy and paste this into Terminal.") {
+            VStack(spacing: 7) {
+                CommandBlock(command: command)
+                Caption(note)
+            }
             .stagger(1)
         }
     }
@@ -248,6 +383,11 @@ private struct TestPage: View {
     @State private var phase: Phase = .idle
     /// How many of the containers found have been let onto the screen so far.
     @State private var revealed = 0
+    /// Once there's been one attempt, retrying is the refresh arrow rather
+    /// than a second button with a different word on it.
+    @State private var hasTested = false
+    /// Kept so a retry mid-cascade stops the old one rather than racing it.
+    @State private var revealTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum Phase {
@@ -261,19 +401,25 @@ private struct TestPage: View {
     private static let maxListHeight: CGFloat = rowHeight * 6
 
     var body: some View {
-        PageLayout(title: "Check it works") {
+        PageLayout(
+            title: "Check it works",
+            subtitle: "Ballast connects to your NAS and lists what's running."
+        ) {
             HStack(spacing: 8) {
                 TextField("", text: $settings.sshDestination, prompt: Text(BundledScripts.placeholderDestination))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .multilineTextAlignment(.center)
                     .frame(width: 180)
-                    .onSubmit { runTest() }
+                    .onSubmit { Task { await runTest() } }
 
-                if case .running = phase {
+                if hasTested {
+                    RefreshButton(help: "Test again") { await runTest() }
+                        .disabled(!settings.isConfigured)
+                } else if case .running = phase {
                     ProgressView().controlSize(.small)
                 } else {
-                    Button(isFirstAttempt ? "Test" : "Again") { runTest() }
+                    Button("Test") { Task { await runTest() } }
                         .disabled(!settings.isConfigured)
                 }
             }
@@ -300,11 +446,18 @@ private struct TestPage: View {
     private var found: some View {
         let containers = store.activeContainers
 
-        VStack(spacing: 6) {
-            Label("\(containers.count) running", systemImage: "checkmark.circle.fill")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.green)
-                .monospacedDigit()
+        VStack(alignment: .leading, spacing: 6) {
+            // The glyph sits in the status column and the count over the
+            // names, so the heading reads as the top of the list it counts.
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .frame(width: 14)
+                Text("\(containers.count) running")
+                    .monospacedDigit()
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.green)
+            .accessibilityElement(children: .combine)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
@@ -318,6 +471,8 @@ private struct TestPage: View {
                     }
                 }
                 .frame(width: 300)
+                // Room for the scroller, so it doesn't crowd the ports.
+                .padding(.trailing, 14)
             }
             // Shown, not hidden: a list that stops mid-row with no scroller
             // reads as broken rather than as scrollable.
@@ -329,28 +484,30 @@ private struct TestPage: View {
         }
     }
 
-    private var isFirstAttempt: Bool {
-        if case .idle = phase { return true }
-        return false
-    }
-
-    private func runTest() {
+    /// Returns whether it connected, which is what the refresh arrow turns
+    /// into a checkmark.
+    @discardableResult
+    private func runTest() async -> Bool {
+        revealTask?.cancel()
         phase = .running
         revealed = 0
-        Task {
-            switch await store.testConnection() {
-            case .failure(let error):
-                withAnimation(.easeOut(duration: 0.2)) { phase = .failed(error) }
-            case .success:
-                // The list has to exist before it can be revealed.
-                await store.refresh()
-                // Getting this far is the whole point of the window, so don't
-                // make pressing Done the thing that records setup as finished:
-                // closing from here shouldn't bring it back.
-                settings.hasCompletedOnboarding = true
-                withAnimation(.easeOut(duration: 0.2)) { phase = .connected }
-                await reveal(store.activeContainers.count)
-            }
+        defer { hasTested = true }
+        switch await store.testConnection() {
+        case .failure(let error):
+            withAnimation(.easeOut(duration: 0.2)) { phase = .failed(error) }
+            return false
+        case .success:
+            // The list has to exist before it can be revealed.
+            await store.refresh()
+            // Getting this far is the whole point of the window, so don't
+            // make pressing Done the thing that records setup as finished:
+            // closing from here shouldn't bring it back.
+            settings.hasCompletedOnboarding = true
+            withAnimation(.easeOut(duration: 0.2)) { phase = .connected }
+            // Not awaited: the checkmark belongs to the answer, not to the
+            // end of the cascade.
+            revealTask = Task { await reveal(store.activeContainers.count) }
+            return true
         }
     }
 
@@ -365,6 +522,7 @@ private struct TestPage: View {
         }
 
         for index in 0..<count {
+            guard !Task.isCancelled else { return }
             withAnimation(.spring(duration: 0.3, bounce: 0)) { revealed = index + 1 }
             // Short enough to read as one cascade rather than a queue.
             try? await Task.sleep(for: .milliseconds(70))
@@ -445,47 +603,17 @@ private struct PageLayout<Content: View>: View {
     }
 }
 
-/// One instruction and the command that carries it out. The instruction is
-/// the only prose on the page, so it carries whatever caveat matters.
-private struct Step: View {
-    let label: String
-    let command: String
-
-    var body: some View {
-        VStack(spacing: 7) {
-            StepLabel(label)
-            CommandBlock(command: command)
-        }
-    }
-}
-
-/// The same shape as a step, for the one thing that is typed rather than run.
-private struct Field: View {
-    let label: String
+/// One half of the destination, for the one thing that is typed rather than run.
+private struct HalfField: View {
     @Binding var text: String
-    var onSubmit: () -> Void = {}
+    let prompt: String
 
     var body: some View {
-        VStack(spacing: 7) {
-            StepLabel(label)
-            TextField("", text: $text, prompt: Text(BundledScripts.placeholderDestination))
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12))
-                .multilineTextAlignment(.center)
-                .frame(width: 240)
-                .onSubmit(onSubmit)
-        }
-    }
-}
-
-private struct StepLabel: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 12, weight: .medium))
-            .fixedSize(horizontal: false, vertical: true)
+        TextField("", text: $text, prompt: Text(prompt))
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 12))
+            .multilineTextAlignment(.center)
+            .frame(width: 150)
     }
 }
 
@@ -575,7 +703,7 @@ private struct Caption: View {
     }
 }
 
-/// How far through setup you are, in four dots.
+/// How far through setup you are, one dot per page.
 private struct PageDots: View {
     let count: Int
     let current: Int
