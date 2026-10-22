@@ -13,8 +13,11 @@ import AppKit
 import SwiftUI
 
 let windowSize = CGSize(width: 800, height: 400)
+/// Finder can't stop the window being resized, and draws plain white past the
+/// edge of the picture, so the picture carries on well beyond the window.
+let canvasSize = CGSize(width: 3200, height: 2000)
 /// Centre line of both icons.
-let iconY: CGFloat = 180
+let iconY: CGFloat = 200
 
 struct Background: View {
     var appName: String
@@ -36,7 +39,7 @@ struct Background: View {
             glow(Color(red: 0.50, green: 0.80, blue: 0.95), at: .bottomTrailing, radius: 230, opacity: 0.35)
 
             instruction
-                .position(x: windowSize.width / 2, y: 53)
+                .position(x: windowSize.width / 2, y: 50)
 
             Chevrons()
                 .position(x: windowSize.width / 2, y: iconY)
@@ -95,16 +98,52 @@ guard arguments.count == 3 else {
     exit(2)
 }
 
+/// Fills the canvas beyond the window by stretching the window's right column
+/// and bottom row outwards, so a bigger window just sees more of the wash
+/// carrying on, with no seam where the design ends.
+func extend(_ window: CGImage, scale: CGFloat) -> CGImage? {
+    let width = window.width, height = window.height
+    guard let context = CGContext(
+        data: nil,
+        width: Int(canvasSize.width * scale),
+        height: Int(canvasSize.height * scale),
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else { return nil }
+    context.interpolationQuality = .none
+
+    // Core Graphics counts up from the bottom; images are cropped from the top.
+    let top = CGFloat(context.height)
+    let right = CGFloat(context.width - width)
+    let below = top - CGFloat(height)
+    func draw(_ crop: CGRect, into rect: CGRect) {
+        guard let piece = window.cropping(to: crop) else { return }
+        context.draw(piece, in: rect)
+    }
+
+    draw(CGRect(x: 0, y: 0, width: width, height: height),
+         into: CGRect(x: 0, y: below, width: CGFloat(width), height: CGFloat(height)))
+    draw(CGRect(x: width - 1, y: 0, width: 1, height: height),
+         into: CGRect(x: CGFloat(width), y: below, width: right, height: CGFloat(height)))
+    draw(CGRect(x: 0, y: height - 1, width: width, height: 1),
+         into: CGRect(x: 0, y: 0, width: CGFloat(width), height: below))
+    draw(CGRect(x: width - 1, y: height - 1, width: 1, height: 1),
+         into: CGRect(x: CGFloat(width), y: 0, width: right, height: below))
+    return context.makeImage()
+}
+
 // Top-level code runs on the main thread, which ImageRenderer requires.
 let png = MainActor.assumeIsolated { () -> Data? in
     let renderer = ImageRenderer(content: Background(appName: arguments[1]))
     renderer.scale = 2
-    guard let cgImage = renderer.cgImage else { return nil }
+    guard let window = renderer.cgImage, let cgImage = extend(window, scale: renderer.scale) else { return nil }
 
     // Sized in points so the PNG carries 144 dpi, which is how Finder knows
     // to draw it at half its pixel size rather than cropping it.
     let bitmap = NSBitmapImageRep(cgImage: cgImage)
-    bitmap.size = windowSize
+    bitmap.size = canvasSize
     return bitmap.representation(using: .png, properties: [:])
 }
 guard let png else {

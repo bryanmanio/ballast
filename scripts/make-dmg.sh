@@ -65,7 +65,8 @@ hdiutil attach "$SCRATCH/rw.dmg" -readwrite -noverify -noautoopen -quiet
 
 # Icon positions are the centres of the icons, in the same top-left points as
 # the background; keep them in step with make-dmg-background.swift. Bounds
-# are screen coordinates, so only their size matters.
+# are screen coordinates, so only their size matters, and they take in the
+# title bar: the extra 32 points leave the whole 800 x 400 background showing.
 osascript - "$NAME" <<'EOF' || die "Finder couldn't lay out the window; if it was refused permission, allow your terminal to control Finder in System Settings → Privacy & Security → Automation"
 on run {volumeName}
     tell application "Finder"
@@ -75,15 +76,15 @@ on run {volumeName}
                 set current view to icon view
                 set toolbar visible to false
                 set statusbar visible to false
-                set bounds to {200, 120, 1000, 520}
+                set bounds to {200, 120, 1000, 552}
             end tell
             set viewOptions to icon view options of container window
             set arrangement of viewOptions to not arranged
             set icon size of viewOptions to 212
             set text size of viewOptions to 16
             set background picture of viewOptions to file ".background:background.png"
-            set position of item (volumeName & ".app") of container window to {190, 180}
-            set position of item "Applications" of container window to {610, 180}
+            set position of item (volumeName & ".app") of container window to {190, 200}
+            set position of item "Applications" of container window to {610, 200}
             update without registering applications
             close
         end tell
