@@ -41,7 +41,15 @@ If a DSM update resets `sshd_config`, run `deploy-key.sh` again.
   right-clicking it.
 - **Image updates:** a blue arrow means a newer image is available. Ballast
   only checks for updates and never installs them. Use Watchtower or
-  `docker compose` for that.
+  `docker compose` for that. For a compose container, right-click the row and
+  choose **Copy update command** to get the commands to paste into an SSH
+  session on the NAS.
+
+  Restarting a container doesn't update it, and neither does **Build** in
+  Container Manager. Both reuse the image already on the NAS. The image has to
+  be pulled first. Container Manager also often misses updates to images
+  hosted outside Docker Hub, such as LinuxServer's `lscr.io`, so it can say
+  "up to date" when Ballast doesn't. Ballast asks the image's own registry.
 - **History** (⌘Y) lists exits, crashes, restarts and updates. You can turn
   on notifications for crashes in Settings.
 - **Global hotkey:** ⌥⌘B opens the menu.

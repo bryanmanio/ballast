@@ -190,6 +190,41 @@ struct ImageUpdateResolverTests {
         #expect(pinned.runningImageVersion == "10.9.11")
     }
 
+    @Test("the update command names the compose project, not just its folder")
+    func composeUpdateCommand() {
+        let container = makeContainer("lazylibrarian", labels: [
+            "com.docker.compose.project": "books",
+            "com.docker.compose.service": "lazylibrarian",
+            "com.docker.compose.project.working_dir": "/volume1/docker/projects/books-compose",
+            "com.docker.compose.project.config_files": "/volume1/docker/projects/books-compose/compose.yaml",
+            "com.docker.compose.version": "2.20.1",
+        ])
+        #expect(container.composeUpdateCommand == "cd /volume1/docker/projects/books-compose"
+            + " && sudo docker compose -p books pull lazylibrarian"
+            + " && sudo docker compose -p books up -d lazylibrarian")
+    }
+
+    @Test("an unusual compose file, an old compose and a spaced path are all spelled out")
+    func composeUpdateCommandEdgeCases() {
+        let container = makeContainer("app", labels: [
+            "com.docker.compose.project": "media",
+            "com.docker.compose.service": "app",
+            "com.docker.compose.project.working_dir": "/volume1/docker/My Stack",
+            "com.docker.compose.project.config_files": "/volume1/docker/My Stack/media.yml",
+            "com.docker.compose.version": "1.29.2",
+        ])
+        #expect(container.composeUpdateCommand == "cd '/volume1/docker/My Stack'"
+            + " && sudo docker-compose -p media -f '/volume1/docker/My Stack/media.yml' pull app"
+            + " && sudo docker-compose -p media -f '/volume1/docker/My Stack/media.yml' up -d app")
+        #expect(Container.shellQuoted("it's") == #"'it'\''s'"#)
+    }
+
+    @Test("a container compose didn't make has no update command")
+    func noComposeUpdateCommand() {
+        #expect(makeContainer("plex").composeUpdateCommand == nil)
+        #expect(makeContainer("plex", labels: ["ballast.group": "media"]).composeUpdateCommand == nil)
+    }
+
     @Test("a registry's auth challenge is read into its parts")
     func challenge() {
         let parameters = RegistryClient.challengeParameters(
