@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- BallastMark on its 32-unit grid, scaled by 32. The hull: a ring whose
-       outer edge is r=8.25 and inner r=6.15. -->
-  <circle cx="512" cy="512" r="230.4" fill="none" stroke="#FFFFFF" stroke-width="67.2"/>
-  <!-- The water it sits in: the segment of the outer circle 1.5 units below centre. -->
-  <path d="M 252.4 560 A 264 264 0 0 0 771.6 560 Z" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 32 32">
+  <!-- BallastMark, path for path the favicon on ballast.ing, on its 32-unit
+       grid. A disc of r=8.25 with the top half of an r=6.15 hole cut out:
+       a ring above the load line, solid below it. -->
+  <path d="M16 7.75a8.25 8.25 0 1 0 0 16.5 8.25 8.25 0 0 0 0-16.5ZM22.15 16H9.85a6.15 6.15 0 0 1 12.3 0Z" fill="#FFFFFF"/>
 </svg>
