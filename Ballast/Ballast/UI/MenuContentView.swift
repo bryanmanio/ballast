@@ -188,15 +188,7 @@ struct MenuContentView: View {
                         action: toggleSearch
                     )
 
-                    HeaderButton(
-                        symbol: "arrow.clockwise",
-                        help: "Refresh now (⌘R)",
-                        shortcut: KeyboardShortcut("r")
-                    ) {
-                        Task { await store.refresh() }
-                    }
-                    .disabled(store.isRefreshing)
-                    .opacity(store.isRefreshing ? 0.4 : 1)
+                    RefreshButton(store: store)
 
                     HeaderButton(
                         symbol: "clock.arrow.circlepath",
@@ -487,9 +479,120 @@ private struct ScopeControl: View {
     }
 }
 
+/// Refresh, with an answer. A click spins the arrow for as long as the
+/// refresh takes, always finishing the turn it's on so it never stops at an
+/// odd angle, then morphs it into a checkmark for a moment before the arrow
+/// comes back.
+private struct RefreshButton: View {
+    let store: ContainerStore
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum Phase { case idle, spinning, done }
+    @State private var phase: Phase = .idle
+    /// Whole turns only, so a stopped arrow is always upright.
+    @State private var turns: Double = 0
+    @State private var isAwaitingRefresh = false
+
+    /// Linear, so back-to-back turns join into one constant spin.
+    private static let turnDuration = 0.8
+    private static let checkmarkHold: Duration = .seconds(1.2)
+    private static let morph: Animation = .smooth(duration: 0.3)
+    /// The arrowhead makes `arrow.clockwise` taller than its ring, so the
+    /// glyph's centre sits this far above the ring's and a turn around it
+    /// wobbles. Lifting the glyph by as much puts the ring dead centre in the
+    /// button, where the rotation happens, so the arrow spins in place.
+    /// Measured from the symbol at the button's 11pt medium.
+    private static let ringLift: CGFloat = 1.14
+
+    var body: some View {
+        HeaderButton(glyph: glyph, help: "Refresh now (⌘R)", shortcut: KeyboardShortcut("r")) {
+            Task { await refresh() }
+        }
+        .disabled(store.isRefreshing || phase != .idle)
+        // A refresh nobody clicked for (opening the menu, the timer) dims the
+        // button as before. One that was asked for spins at full strength:
+        // dimming it would hide the very feedback the spin is there to give.
+        .opacity(store.isRefreshing && phase == .idle ? 0.4 : 1)
+        .task(id: phase) {
+            guard phase == .done else { return }
+            try? await Task.sleep(for: Self.checkmarkHold)
+            guard !Task.isCancelled else { return }
+            withAnimation(Self.morph) { phase = .idle }
+        }
+    }
+
+    private var glyph: some View {
+        ZStack {
+            if phase == .done {
+                // No ring to centre and nothing to turn: it sits as drawn.
+                Image(systemName: "checkmark")
+                    .transition(GlyphSwap(turn: .zero, reduceMotion: reduceMotion))
+            } else {
+                Image(systemName: "arrow.clockwise")
+                    .offset(y: -Self.ringLift)
+                    .rotationEffect(.degrees(turns * 360))
+                    .transition(GlyphSwap(turn: .degrees(90), reduceMotion: reduceMotion))
+            }
+        }
+    }
+
+    private func refresh() async {
+        phase = .spinning
+        isAwaitingRefresh = true
+        if !reduceMotion { spinOneTurn() }
+        await store.refresh()
+        isAwaitingRefresh = false
+        // Without the spin there's no turn to wait out.
+        if reduceMotion { settle() }
+    }
+
+    /// One turn at a time, deciding at the end of each whether to go round
+    /// again — which is what lets the spin stop on a full turn.
+    private func spinOneTurn() {
+        withAnimation(.linear(duration: Self.turnDuration)) {
+            turns += 1
+        } completion: {
+            if isAwaitingRefresh { spinOneTurn() } else { settle() }
+        }
+    }
+
+    private func settle() {
+        // A checkmark after a failed refresh would be a lie; the error banner
+        // already says what went wrong, so just put the arrow back.
+        withAnimation(Self.morph) {
+            phase = store.lastError == nil ? .done : .idle
+        }
+    }
+}
+
+/// Swaps one glyph for another by shrinking, fading and softening the old
+/// one away as the new one grows in. A glyph given a `turn` keeps rotating
+/// clockwise through the swap — in from a quarter turn back, out a quarter
+/// turn on — so a spinning arrow carries on the way it was going in both
+/// directions, instead of seeming to reverse as it leaves or returns.
+private struct GlyphSwap: Transition {
+    var turn: Angle
+    var reduceMotion: Bool
+
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        let isShown = phase.isIdentity
+        if reduceMotion {
+            content.opacity(isShown ? 1 : 0)
+        } else {
+            content
+                // -1 arriving, 1 leaving: both clockwise of upright.
+                .rotationEffect(turn * phase.value)
+                .scaleEffect(isShown ? 1 : 0.3)
+                .opacity(isShown ? 1 : 0)
+                .blur(radius: isShown ? 0 : 1)
+        }
+    }
+}
+
 /// A header control rendered in Liquid Glass.
-private struct HeaderButton: View {
-    let symbol: String
+private struct HeaderButton<Glyph: View>: View {
+    let glyph: Glyph
     let help: String
     /// Hidden controls can't be reached by eye, so each one that matters is
     /// also a key away. The hint lives in `help`, since there is no room for
@@ -500,7 +603,7 @@ private struct HeaderButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
+            glyph
                 .font(.system(size: 11, weight: .medium))
                 .frame(width: 20, height: 20)
                 .contentShape(.circle)
@@ -512,6 +615,18 @@ private struct HeaderButton: View {
         // to the pointer reads as disabled.
         .glassEffect(isActive ? .regular.tint(.accentColor).interactive() : .regular.interactive(), in: .circle)
         .help(help)
+    }
+}
+
+extension HeaderButton where Glyph == Image {
+    init(
+        symbol: String,
+        help: String,
+        shortcut: KeyboardShortcut? = nil,
+        isActive: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.init(glyph: Image(systemName: symbol), help: help, shortcut: shortcut, isActive: isActive, action: action)
     }
 }
 
