@@ -1,0 +1,52 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.23100,0.49400,0.87800,1.00000",
+          "srgb:0.09000,0.28200,0.60800,1.00000"
+        ],
+        "orientation" : {
+          "start" : { "x" : 0.5, "y" : 0 },
+          "stop" : { "x" : 0.5, "y" : 1 }
+        }
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.23100,0.49400,0.87800,1.00000",
+          "srgb:0.09000,0.28200,0.60800,1.00000"
+        ],
+        "orientation" : {
+          "start" : { "x" : 0.5, "y" : 0 },
+          "stop" : { "x" : 0.5, "y" : 1 }
+        }
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "mark.svg",
+          "name" : "mark"
+        }
+      ],
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

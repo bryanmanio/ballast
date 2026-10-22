@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- BallastMark on its 32-unit grid, scaled by 32. The hull: a ring whose
+       outer edge is r=8.25 and inner r=6.15. -->
+  <circle cx="512" cy="512" r="230.4" fill="none" stroke="#FFFFFF" stroke-width="67.2"/>
+  <!-- The water it sits in: the segment of the outer circle 1.5 units below centre. -->
+  <path d="M 252.4 560 A 264 264 0 0 0 771.6 560 Z" fill="#FFFFFF"/>
+</svg>
