@@ -141,17 +141,7 @@ struct MenuContentView: View {
     /// Header for a pane that replaces the list, with the way back.
     private func paneHeader(_ title: String, close: @escaping () -> Void) -> some View {
         HStack(spacing: 5) {
-            Button(action: close) {
-                HStack(spacing: 3) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text(title)
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.pressable)
-            .help("Back to the container list (esc)")
+            BackButton(title: title, action: close)
 
             Spacer()
         }
@@ -270,7 +260,7 @@ struct MenuContentView: View {
                         .contentShape(.circle)
                 }
                 .buttonStyle(.pressable)
-                .foregroundStyle(.secondary)
+                .hoverHighlight()
             }
         }
         .padding(.horizontal, 9)
@@ -432,6 +422,38 @@ struct MenuContentView: View {
     }
 }
 
+/// The way out of a pane, titled with the pane it leaves.
+private struct BackButton: View {
+    let title: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 10, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            // The title is already primary, so hover can't brighten it; a
+            // faint fill marks it instead. Padded out and back in, so the
+            // fill gets room around the text without moving the title.
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color.primary.opacity(isHovering ? 0.06 : 0), in: .rect(cornerRadius: 6))
+            .contentShape(.rect(cornerRadius: 6))
+            .padding(.horizontal, -6)
+            .padding(.vertical, -3)
+        }
+        .buttonStyle(.pressable)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .help("Back to the container list (esc)")
+    }
+}
+
 /// The scope control: one piece of glass with a selection that moves between
 /// halves, rather than two separate buttons sitting next to each other.
 private struct ScopeControl: View {
@@ -456,7 +478,6 @@ private struct ScopeControl: View {
         } label: {
             Text(option.label)
                 .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 // Each half takes an equal share, so the control spans the
                 // full width of the menu.
                 .frame(maxWidth: .infinity)
@@ -464,6 +485,7 @@ private struct ScopeControl: View {
                 .contentShape(.capsule)
         }
         .buttonStyle(.pressable)
+        .hoverHighlight(isOn: isSelected)
         .background {
             if isSelected {
                 Capsule()
@@ -610,7 +632,7 @@ private struct HeaderButton<Glyph: View>: View {
         }
         .buttonStyle(.pressable)
         .keyboardShortcut(shortcut)
-        .foregroundStyle(isActive ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+        .hoverHighlight(isOn: isActive)
         // Interactive in both states: an active button that stops responding
         // to the pointer reads as disabled.
         .glassEffect(isActive ? .regular.tint(.accentColor).interactive() : .regular.interactive(), in: .circle)
