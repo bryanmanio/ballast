@@ -26,7 +26,7 @@ struct BallastMark: View {
                 .strokeBorder(.white, lineWidth: 2.1 * scale)
                 .frame(width: 16.5 * scale, height: 16.5 * scale)
 
-            // The water it sits in: the lower segment of that same circle.
+            // The water it sits in: the lower half of that same circle.
             Waterline()
                 .fill(.white)
                 .frame(width: 16.5 * scale, height: 16.5 * scale)
@@ -44,23 +44,16 @@ struct BallastMark: View {
         endPoint: .bottom
     )
 
-    /// The part of a circle below its load line — the one thing ballast is
-    /// for. Cut 1.5 units below centre, as the favicon does.
+    /// The half of a circle below its load line — the one thing ballast is
+    /// for. Cut through the centre, as the favicon does.
     private struct Waterline: Shape {
         func path(in rect: CGRect) -> Path {
-            let radius = min(rect.width, rect.height) / 2
-            let depth = radius * (1.5 / 8.25)
-            let center = CGPoint(x: rect.midX, y: rect.midY)
-            let halfChord = (radius * radius - depth * depth).squareRoot()
-            let angle = atan2(depth, halfChord)
-
             var path = Path()
-            path.move(to: CGPoint(x: center.x - halfChord, y: center.y + depth))
             path.addArc(
-                center: center,
-                radius: radius,
-                startAngle: .radians(.pi - angle),
-                endAngle: .radians(angle),
+                center: CGPoint(x: rect.midX, y: rect.midY),
+                radius: min(rect.width, rect.height) / 2,
+                startAngle: .degrees(180),
+                endAngle: .degrees(0),
                 clockwise: true
             )
             path.closeSubpath()
