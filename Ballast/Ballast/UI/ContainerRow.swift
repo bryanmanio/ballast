@@ -46,7 +46,11 @@ struct ContainerRow: View {
                     .layoutPriority(1)
 
                 if let update, update.isUpdate {
-                    UpdateBadge(update: update, url: imageReference?.webURL)
+                    UpdateBadge(
+                        update: update,
+                        url: imageReference?.webURL,
+                        hasCommand: container.composeUpdateCommand != nil
+                    )
                 }
 
                 // Revealed on hover, in the slack after the name, so no other
@@ -126,7 +130,14 @@ struct ContainerRow: View {
         if let lastExit { lines.append("Last exit: \(lastExit.summary), \(lastExit.relativeTime())") }
         // Up to date is the expected case, and says nothing worth a line.
         if let update, update != .upToDate { lines.append(update.summary) }
+        if let update, update.hasNewerImage { lines.append(updateHint) }
         return lines.joined(separator: "\n")
+    }
+
+    private var updateHint: String {
+        container.composeUpdateCommand == nil
+            ? ImageUpdateStatus.howToUpdate
+            : ImageUpdateStatus.howToUpdate + " Right-click to copy the commands."
     }
 
     @ViewBuilder
@@ -156,6 +167,9 @@ struct ContainerRow: View {
         Divider()
         if let url = imageReference?.webURL, let site = imageReference?.webSiteName {
             Button("Open on \(site)") { openURL(url) }
+        }
+        if let update, update.hasNewerImage, let command = container.composeUpdateCommand {
+            Button("Copy update command") { copy(command) }
         }
         Button("Copy container name") { copy(container.name) }
         Button("Copy image") { copy(container.image) }
@@ -200,6 +214,7 @@ private struct RowIconButton: View {
 private struct UpdateBadge: View {
     let update: ImageUpdateStatus
     let url: URL?
+    var hasCommand = false
 
     @Environment(\.openURL) private var openURL
 
@@ -214,8 +229,15 @@ private struct UpdateBadge: View {
         }
         .buttonStyle(.plain)
         .disabled(url == nil)
-        .help(url == nil ? update.summary : "\(update.summary)\nClick to see the release")
+        .help(help)
         .accessibilityLabel(update.summary)
+    }
+
+    private var help: String {
+        var lines = [update.summary]
+        if url != nil { lines.append("Click to see the release.") }
+        lines.append(hasCommand ? "Right-click the row to copy the update command." : ImageUpdateStatus.howToUpdate)
+        return lines.joined(separator: "\n")
     }
 }
 
