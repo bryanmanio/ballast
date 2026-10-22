@@ -35,6 +35,17 @@ enum ImageUpdateStatus: Equatable, Sendable {
         }
     }
 
+    /// Whether the registry has a different image at all, rebuilds included.
+    var hasNewerImage: Bool {
+        switch self {
+        case .newVersion, .newImage, .rebuild: true
+        case .upToDate, .unavailable: false
+        }
+    }
+
+    /// Why the icon outlives a restart, which is the obvious thing to try.
+    static let howToUpdate = "Restarting, or Build in Container Manager, keeps the image already on the NAS. Pull the new image first, then recreate the container."
+
     /// One line for a tooltip.
     var summary: String {
         switch self {
@@ -141,5 +152,50 @@ extension Container {
         }
         if let tag = imageTag, !Self.channelTags.contains(tag.lowercased()) { return tag }
         return nil
+    }
+
+    /// Shell commands that pull this container's image and recreate it from
+    /// the compose project that made it, to paste into an SSH session on the
+    /// NAS. Nil for a container compose didn't make: recreating that needs
+    /// the options it was created with, which only Container Manager has.
+    ///
+    /// Restarting never changes the image, and Container Manager's Build
+    /// reuses whatever image is already on the NAS, so an explicit pull is the
+    /// only step that actually updates.
+    var composeUpdateCommand: String? {
+        guard let project = labels["com.docker.compose.project"], !project.isEmpty,
+              let service = labels["com.docker.compose.service"], !service.isEmpty,
+              let directory = labels["com.docker.compose.project.working_dir"], !directory.isEmpty else {
+            return nil
+        }
+
+        // Compose v1 was a separate `docker-compose` binary, which older DSM
+        // releases still ship.
+        let isV1 = labels["com.docker.compose.version"]?.hasPrefix("1.") == true
+        var compose = isV1 ? "sudo docker-compose" : "sudo docker compose"
+        // The project name has to be given: Container Manager names a project
+        // separately from its folder, and compose would otherwise take the
+        // folder's name and build a second copy of the stack beside the first.
+        compose += " -p \(Self.shellQuoted(project))"
+        // Files compose wouldn't find by itself in the folder.
+        let files = (labels["com.docker.compose.project.config_files"] ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let defaultNames = ["compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"]
+        let isDefault = files.count == 1
+            && defaultNames.contains { files[0] == directory + "/" + $0 }
+        if !files.isEmpty && !isDefault {
+            compose += files.map { " -f \(Self.shellQuoted($0))" }.joined()
+        }
+
+        let quotedService = Self.shellQuoted(service)
+        return "cd \(Self.shellQuoted(directory)) && \(compose) pull \(quotedService) && \(compose) up -d \(quotedService)"
+    }
+
+    /// Single-quoted for a POSIX shell, unless it plainly needs no quoting.
+    static func shellQuoted(_ string: String) -> String {
+        if string.wholeMatch(of: /[A-Za-z0-9_.\/@%+=:,-]+/) != nil { return string }
+        return "'" + string.replacing("'", with: #"'\''"#) + "'"
     }
 }
