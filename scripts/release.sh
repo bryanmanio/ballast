@@ -50,7 +50,6 @@ mkdir -p "$SCRATCH" "$OUTPUT"
 
 ARCHIVE="$SCRATCH/$APP_NAME.xcarchive"
 EXPORTED="$SCRATCH/export"
-STAGE="$SCRATCH/dmg"
 
 # --- preflight ------------------------------------------------------------
 # Signing and notarisation are one-time, interactive, and account-bound, so
@@ -63,6 +62,10 @@ if [ "$SKIP_NOTARIZE" -eq 0 ] && [ -n "$(git status --porcelain)" ]; then
     die "the working tree has uncommitted changes; commit them, or use --skip-notarize for a local check"
 fi
 COMMIT=$(git rev-parse --short HEAD)
+
+# The disk image's window is laid out by Finder, which finds the volume by
+# name; better to hear about a stray one now than after notarising the app.
+[ -e "/Volumes/$APP_NAME" ] && die "a volume called $APP_NAME is mounted; eject it first"
 
 say "Checking signing identity"
 IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
@@ -235,23 +238,7 @@ fi
 # --- disk image -----------------------------------------------------------
 
 say "Building the disk image"
-mkdir -p "$STAGE"
-cp -R "$APP" "$STAGE/"
-# The drag-to-install convention. It matters beyond habit: Launch at Login
-# uses SMAppService, which refuses to register an app that isn't properly
-# installed, and an app left in Downloads runs translocated from a random
-# read-only path.
-ln -s /Applications "$STAGE/Applications"
-
-rm -f "$DMG"
-hdiutil create \
-    -volname "$APP_NAME" \
-    -srcfolder "$STAGE" \
-    -fs HFS+ \
-    -format UDZO \
-    -quiet \
-    "$DMG"
-
+./scripts/make-dmg.sh "$APP" "$DMG"
 codesign --sign "$IDENTITY" --timestamp "$DMG"
 echo "  $DMG"
 
