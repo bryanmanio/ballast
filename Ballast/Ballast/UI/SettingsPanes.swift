@@ -186,16 +186,15 @@ struct ConnectionPane: View {
                 HStack(spacing: 3) {
                     Text("Advanced")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(showAdvanced ? 90 : 0))
                 }
                 .padding(.leading, 2)
                 .contentShape(.rect)
             }
             .buttonStyle(.pressable)
+            .hoverHighlight()
 
             if showAdvanced {
                 SettingsCard {
