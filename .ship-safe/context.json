@@ -1,0 +1,365 @@
+{
+  "version": "10.1.0",
+  "generatedAt": "2026-10-22T21:00:35.649Z",
+  "rootPath": "/Users/bryan/.paseo/worktrees/14gu7xv9/round-lamprey",
+  "recon": {
+    "frameworks": [],
+    "languages": [],
+    "apiRoutes": [],
+    "authPatterns": [],
+    "databases": [],
+    "cloudProviders": [],
+    "frontendExposure": [],
+    "packageManagers": [],
+    "cicd": [],
+    "hasDockerfile": false,
+    "hasTerraform": false,
+    "hasKubernetes": false,
+    "envFiles": [],
+    "configFiles": []
+  },
+  "fileIndex": {
+    ".gitignore": {
+      "hash": "7fa2dcb9a36ab5a287587c49952a54c8fcc5c4e0b5602eba96e1d36b59042b3c",
+      "size": 292,
+      "lastScanned": "2026-10-22T21:00:35.645Z"
+    },
+    "Package.swift": {
+      "hash": "5a7997ab91ded0fccdfcd7f157c852a2b07aa37d62572a10754127dec4266ef8",
+      "size": 731,
+      "lastScanned": "2026-10-22T21:00:35.645Z"
+    },
+    "README.md": {
+      "hash": "d3d1c052fd6efe058e3e7f17c85c518efd6d62a172ca3a02e8f6693345c0e15f",
+      "size": 3686,
+      "lastScanned": "2026-10-22T21:00:35.645Z"
+    },
+    "scripts/make-dmg-background.swift": {
+      "hash": "317c525f5de908f0763b04a453460bfa9c68709b39223bc46997d64cd7efad13",
+      "size": 4358,
+      "lastScanned": "2026-10-22T21:00:35.645Z"
+    },
+    "scripts/make-dmg.sh": {
+      "hash": "5622f6fbac401edeeace84a8823a66a276812fc05911114cb3491d60f085c5dd",
+      "size": 4526,
+      "lastScanned": "2026-10-22T21:00:35.645Z"
+    },
+    "scripts/release.sh": {
+      "hash": "3c621a24292b20f38235f36a751602215bf66f2824d1f760104d3fb92201acfb",
+      "size": 11197,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "scripts/test.sh": {
+      "hash": "2fb0e5a733189ca11facc25efd7a5d939dc5d35650cd28693496c8973bcdd4e3",
+      "size": 448,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "nas/ballast-agent": {
+      "hash": "0d0cc9ce62129f7c5a72c7947da0fbad8e50cfd5541c99c738c496c77ae50b5d",
+      "size": 8980,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "nas/deploy-key.sh": {
+      "hash": "cea4982c1f76ee305dba2783d870e527acf07114e2dfdf460fca8200c7ee235e",
+      "size": 2578,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "nas/deploy.sh": {
+      "hash": "709166e645e1716ed627c9e240394372b5b883483c99c972e4d57422d7cdc2db",
+      "size": 2634,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "nas/install-key.sh": {
+      "hash": "c0db71834330fb9397aabc2f115c7e0abe866426920c68e89c28f86987363c9f",
+      "size": 5209,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "nas/install.sh": {
+      "hash": "01eecf62ec41185e6ae5aae6d1f7140ae6389964ddd712d93205f57569db8b89",
+      "size": 3911,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/AgentOutputParserTests.swift": {
+      "hash": "e9503bb3bc41ea06543f8b3b5a883e4cafc8218277222467bd18da23b9cc1e50",
+      "size": 9718,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/BallastErrorTests.swift": {
+      "hash": "36936c9b75fc4674ce33eea6382a7b6bcbed50e3ced4bef72f8b9e8ea802c619",
+      "size": 8318,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/BundledScriptsTests.swift": {
+      "hash": "9127c86083bcd4c7657256bdf0a8e958e763bf46a3cefdc71e0ac860b5d7d488",
+      "size": 8607,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/ContainerStoreTests.swift": {
+      "hash": "907058aa9157dc771f6b207c34696d760b8c74b071aac3e698751d37384c3854",
+      "size": 19954,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/DowntimeTests.swift": {
+      "hash": "92d776508104bc5800458dd0f173df3f715bd3240e318677db9dca4659803e24",
+      "size": 20375,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/HotkeyBindingTests.swift": {
+      "hash": "7a74ccfc5770a6ba31aa4dacd12d7c783c19adf8a5f09e8ad76fd281a182c60a",
+      "size": 2257,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/ImageUpdateTests.swift": {
+      "hash": "9166106516d31de07c013dba95510e15aef92b6677f0370e7449d47428552014",
+      "size": 23737,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Tests/BallastCoreTests/ServiceURLTests.swift": {
+      "hash": "e0bc8c6b6b309d0332f1f28fe07b4e6f72d653f947712158134c205814c84059",
+      "size": 20952,
+      "lastScanned": "2026-10-22T21:00:35.646Z"
+    },
+    "Ballast/Ballast/BallastApp.swift": {
+      "hash": "d6b06dc1093418f5743c74bea182b5d990b4d3478191612b1485a8f84fcc1ca8",
+      "size": 7835,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast.xcodeproj/project.pbxproj": {
+      "hash": "72d22d548c85be891652bd3f6ce115a52599858df7b2dce3530e79c977c6931e",
+      "size": 12232,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Tests/BallastCoreTests/Fixtures/list-minimal.txt": {
+      "hash": "21788b18b1b3d975d6640a893b54abf9b4ea9c210c367e266145a78b0d21acd8",
+      "size": 201,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Tests/BallastCoreTests/Fixtures/list-sample.txt": {
+      "hash": "404a2a1b570caf1c5b7c7d09e9592fae8b951b865046f96f3d588d7429eb9402",
+      "size": 1907,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/AppIcon.icon/icon.json": {
+      "hash": "c2e5a7d066780c9c748d3d4420d2967f9326173dea4836391f30f9fb49ff1526",
+      "size": 1076,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Assets.xcassets/Contents.json": {
+      "hash": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+      "size": 63,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/AgentOutput.swift": {
+      "hash": "ba1402f953576720125b048caca76bb3b3325e7e078df902e38690d38e50cacd",
+      "size": 11360,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/AppSettings.swift": {
+      "hash": "eb0ce0371604096282b74174ecb6b86c3583c764d2ee8033ebecdc902d010666",
+      "size": 7190,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/BallastError.swift": {
+      "hash": "9551c14acd1c7618f1109fff5c88fc50d102f4e2defeb8637413c10a4007e549",
+      "size": 5924,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/BundledScripts.swift": {
+      "hash": "4ca2c908f0e61d233efc90b090788574a8f0ca9cc515af54141e3e0557b7f501",
+      "size": 7233,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/Container.swift": {
+      "hash": "fdc34a726b46fb60e9fd57e076a393f0d3b64d5a7f87d5c0e709f6b863b39e6e",
+      "size": 6075,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/ContainerSortOrder.swift": {
+      "hash": "a1fd3cd2f9e06dcc6a737cf4b77d9de2a3b0501be8b485a8966d2086971bb5bb",
+      "size": 352,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/ContainerSource.swift": {
+      "hash": "e8a555756a555af9e61e60dee39605f1aa0dc42eff89afcefbdecd9be9f1a65f",
+      "size": 1474,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/ContainerStore.swift": {
+      "hash": "65466854dc1fc179e21df9f05f7aed08e71c38a4cc6b8ac50b78615a6e1dcc51",
+      "size": 26953,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/DowntimeDetector.swift": {
+      "hash": "20dd8e3dff84f50d066613c1465fc0d2044505279e6f26b98bdae18fe8ae08e9",
+      "size": 3715,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/DowntimeEvent.swift": {
+      "hash": "fe97a1b7eef49e587878b5c475d8a61c9e2d9f74276b4e79830fc08978986a9c",
+      "size": 6236,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/DowntimeHistoryStore.swift": {
+      "hash": "ce08dfc3fe076d4fb001e7af875f3964e7b13dd0a7a68848ced6e9e7a8e15167",
+      "size": 5539,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/ExitNotifier.swift": {
+      "hash": "daa582de3d27dad84d5dcae39279736c93f4e670db4bad1be75dd0b942f397a0",
+      "size": 3751,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/FixtureContainerSource.swift": {
+      "hash": "94452b7dacd57caffc604e33c9a628e2057aa3266812631054facea7d858e4df",
+      "size": 12209,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/HostResolver.swift": {
+      "hash": "8532ec9a840c1d3e9685df5c6302bff4c2bc75768ac01491b388c9487d3c1f5a",
+      "size": 4156,
+      "lastScanned": "2026-10-22T21:00:35.647Z"
+    },
+    "Ballast/Ballast/Core/HotkeyBinding.swift": {
+      "hash": "753ae65b857b0367cac2f27ff76a80d6b1db4a5800aba784a5d87c564332c911",
+      "size": 4621,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/ImageReference.swift": {
+      "hash": "dcaae0ae1ede2508b081a114af0c28928b51b9d39e2a401b48a8dc75d8b643e1",
+      "size": 3797,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/ImageUpdate.swift": {
+      "hash": "1f49453f82eed47c929c605596395d52b31e8a2ffc65661c0ea766ad4fa2b762",
+      "size": 9178,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/ProcessRunner.swift": {
+      "hash": "5838b5c90d428f07788524bac6ee60df37eeddc919a5cfc5c117e5316dbd9d72",
+      "size": 3179,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/RegistryClient.swift": {
+      "hash": "f3888e6b7f11553c32ab6f2ede97f1d2434f6b30d4516cf583d95b2e20cf492e",
+      "size": 10313,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/SSHContainerSource.swift": {
+      "hash": "ef50ec6e58b7e930a1ded08194fc1236e47c43e98b268ea2741f6dde3562d777",
+      "size": 6880,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/ServiceProbe.swift": {
+      "hash": "626123311597d4e1bbdf11e55110adbfbe8cdd9487cf074a653367112666a6d3",
+      "size": 4011,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/ServiceStatus.swift": {
+      "hash": "462ae6ca634cf29a5e82693ccb7c87cff461f53de1543d6d6f18c7f6a57664d0",
+      "size": 5738,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/Core/ServiceURL.swift": {
+      "hash": "d2e8cea72d1831e04e61acc82a1e9588a902ae4df872e4d33fc93378c038f92f",
+      "size": 7592,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/BallastMark.swift": {
+      "hash": "11887dfa4d30e13b87b0fa27af0e99e940f510217fad911252ff57e26e8a491e",
+      "size": 2364,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/ContainerRow.swift": {
+      "hash": "cd31b5d3acf027239e85006087825b1657a52b833e45b9fc282775419244695f",
+      "size": 9907,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/GlobalHotkeyCenter.swift": {
+      "hash": "dc3a919c4d649d9b520b97e7b71c34bb6095c56af7297b787c9fd7c17b89ab4f",
+      "size": 3954,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/HistoryView.swift": {
+      "hash": "5866c0781456c6f2efd2fce55badc24adad24d4550a876475e602e1fbe061b24",
+      "size": 3882,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/HotkeyField.swift": {
+      "hash": "f7b74ce1fe20cb0fd45fcd192299a37291cd591f229f6d6cc63f0c1716bdee61",
+      "size": 6035,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/LoopingVideo.swift": {
+      "hash": "bc854b94611b87351b39b8be038f5f4df669b3ec9b5e0bb76af2baff9597203d",
+      "size": 10672,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/MenuBarContextMenu.swift": {
+      "hash": "066acd172063e32d498c560ff2094ef3784dd062a6ca8d56feb74d030cb7a03f",
+      "size": 2730,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/MenuBarLabel.swift": {
+      "hash": "efdd95a70fa4ac8189e81f133a486ac3b9f29038fb08105288ff917b4c9a2753",
+      "size": 1003,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/MenuBarPresenter.swift": {
+      "hash": "206c245247a01521b3cb56c204a869b1f42c5705a9b6282cea742bbe4ffa3ea0",
+      "size": 1108,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/MenuContentView.swift": {
+      "hash": "73f502e372fbe7bf04d9209eefc6785acc096e0d9358f2a6226ca13d0f7e2ffe",
+      "size": 29684,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/OnboardingView.swift": {
+      "hash": "37dcf19cd8009147c22b2514df98115bf16ee0fe06b3ad09168e6b92e070ab34",
+      "size": 28538,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/PressableButtonStyle.swift": {
+      "hash": "13c583ffc13569707744fbe2cf223598c4189b87ee8151f857984d07fcd095fe",
+      "size": 2097,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/SettingsComponents.swift": {
+      "hash": "a40c34dcef861c7cbcbe7e933951c2330f382f3c3b7f137ad26f434b16c7dcb7",
+      "size": 5544,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/SettingsPanes.swift": {
+      "hash": "082805d25af1c01835d2baa1d4d21362cd14af1c456c6ac482142c9324ef980f",
+      "size": 20698,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/SettingsView.swift": {
+      "hash": "0772e752ba7c15d53fa58991e7f2d2ef873ae2d5c22118cb75647f147294f101",
+      "size": 4045,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast/UI/StatusIndicator.swift": {
+      "hash": "af4b164103805f8d67a36dd9d61dac0d98aaa12ee0ded936bbeb6a42170c1c18",
+      "size": 1866,
+      "lastScanned": "2026-10-22T21:00:35.648Z"
+    },
+    "Ballast/Ballast.xcodeproj/project.xcworkspace/contents.xcworkspacedata": {
+      "hash": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f",
+      "size": 135,
+      "lastScanned": "2026-10-22T21:00:35.649Z"
+    },
+    "Ballast/Ballast/Assets.xcassets/AccentColor.colorset/Contents.json": {
+      "hash": "9af65086fa30b49252fae1a1225731691de794f7775af74d71befeb507d12b7c",
+      "size": 123,
+      "lastScanned": "2026-10-22T21:00:35.649Z"
+    }
+  },
+  "lastFindings": {},
+  "stats": {
+    "totalFiles": 67,
+    "totalFindings": 0,
+    "lastScore": 100,
+    "lastGrade": "A"
+  }
+}

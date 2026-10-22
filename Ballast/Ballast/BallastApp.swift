@@ -133,6 +133,10 @@ struct BallastApp: App {
         // that mustn't wrap. Reachable afterwards from the menu's empty state.
         Window("Set up Ballast", id: "onboarding") {
             OnboardingView(settings: settings, store: store)
+                // Every page carries its own title, so the window's would only
+                // say it twice. The name stays for the Window menu and
+                // Mission Control; only the text in the title bar goes.
+                .toolbar(removing: .title)
         }
         .defaultSize(width: 520, height: 470)
         .windowResizability(.contentSize)

@@ -1,0 +1,93 @@
+[
+  {
+    "timestamp": "2026-10-22T21:00:35.643Z",
+    "scoreVersion": 2,
+    "score": 100,
+    "grade": "A",
+    "totalFindings": 0,
+    "totalDepVulns": 0,
+    "categoryScores": {
+      "secrets": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "injection": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "deps": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "auth": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "config": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "supply-chain": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "api": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "llm": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      },
+      "quality": {
+        "deduction": 0,
+        "counts": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        }
+      }
+    }
+  }
+]

@@ -14,6 +14,30 @@ struct SSHContainerSource: ContainerSource {
 
     static let defaultAgentPath = "/usr/local/bin/ballast-agent"
 
+    /// The key setup makes. ssh only looks for its own default names, so
+    /// without being told about this one it would never offer it — and a
+    /// `user@host` destination, with no `~/.ssh/config` entry naming the key,
+    /// would be refused.
+    static let setupKeyPath = "~/.ssh/id_ballast"
+
+    /// Naming any key on the command line stops ssh trying its defaults, so
+    /// they're named too: someone who authorised their usual key keeps
+    /// working. Keys that don't exist are skipped by ssh, not offered.
+    static let defaultKeyPaths = [
+        "~/.ssh/id_rsa", "~/.ssh/id_ecdsa", "~/.ssh/id_ecdsa_sk",
+        "~/.ssh/id_ed25519", "~/.ssh/id_ed25519_sk",
+    ]
+
+    /// The keys to offer, or none — leaving ssh to its own choice — when
+    /// setup's key isn't there.
+    static func identityFiles(
+        home: String = FileManager.default.homeDirectoryForCurrentUser.path
+    ) -> [String] {
+        let setupKey = home + "/.ssh/id_ballast"
+        guard FileManager.default.fileExists(atPath: setupKey) else { return [] }
+        return [setupKeyPath] + defaultKeyPaths
+    }
+
     func fetch() async throws -> AgentListOutput {
         let output = try await runAgent(subcommand: "list")
         do {
@@ -64,7 +88,8 @@ struct SSHContainerSource: ContainerSource {
                 destination: destination,
                 agentPath: agentPath,
                 subcommand: subcommand,
-                argument: argument
+                argument: argument,
+                identityFiles: Self.identityFiles()
             ),
             timeout: timeout ?? self.timeout
         )
@@ -84,7 +109,8 @@ struct SSHContainerSource: ContainerSource {
         destination: String,
         agentPath: String,
         subcommand: String,
-        argument: String? = nil
+        argument: String? = nil,
+        identityFiles: [String] = []
     ) -> [String] {
         var arguments = [
             // Never prompt. A password or host-key prompt from a background
@@ -101,6 +127,13 @@ struct SSHContainerSource: ContainerSource {
             "-o", "ServerAliveInterval=5",
             "-o", "ServerAliveCountMax=2",
             "-o", "LogLevel=ERROR",
+        ]
+        // Before the destination, like every other option. ssh expands the
+        // `~` itself, so these needn't be resolved here.
+        for path in identityFiles {
+            arguments += ["-o", "IdentityFile=\(path)"]
+        }
+        arguments += [
             destination,
             // -n makes sudo fail rather than try to prompt.
             "sudo", "-n", agentPath, subcommand,
