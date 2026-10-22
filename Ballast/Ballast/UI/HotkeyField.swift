@@ -16,6 +16,7 @@ struct HotkeyField: View {
     /// Set when a key is pressed without a qualifying modifier, so the
     /// requirement is explained at the moment it's broken.
     @State private var needsModifier = false
+    @State private var isHovering = false
 
     private let hotkeys = GlobalHotkeyCenter.shared
 
@@ -30,6 +31,7 @@ struct HotkeyField: View {
                     .contentShape(.rect(cornerRadius: 6))
             }
             .buttonStyle(.plain)
+            .onHover { isHovering = $0 }
             .help(isRecording ? "Press the keys you want to use" : "Click to record a new shortcut")
             // The key caps are drawn, so VoiceOver would otherwise read the
             // combination out one glyph at a time, or not at all.
@@ -44,11 +46,12 @@ struct HotkeyField: View {
                         .contentShape(.circle)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+                .hoverHighlight()
                 .help("Remove the shortcut")
             }
         }
         .animation(.easeInOut(duration: 0.12), value: isRecording)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
         .onDisappear(perform: stop)
     }
 
@@ -76,7 +79,10 @@ struct HotkeyField: View {
     @ViewBuilder
     private var background: some View {
         RoundedRectangle(cornerRadius: 6)
-            .fill(Color.primary.opacity(isRecording ? 0.10 : 0.06))
+            // Hover lifts the fill partway to the recording one, so the
+            // field reads as clickable without looking like it's already
+            // listening.
+            .fill(Color.primary.opacity(isRecording ? 0.10 : isHovering ? 0.08 : 0.06))
             .overlay {
                 RoundedRectangle(cornerRadius: 6)
                     .strokeBorder(isRecording ? Color.accentColor : Color.primary.opacity(0.08),

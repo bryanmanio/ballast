@@ -180,8 +180,6 @@ private struct RowIconButton: View {
     let help: String
     let action: () -> Void
 
-    @State private var isHovering = false
-
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -190,9 +188,8 @@ private struct RowIconButton: View {
                 .contentShape(.circle)
         }
         .buttonStyle(.pressable)
-        .foregroundStyle(isHovering ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+        .hoverHighlight()
         .glassEffect(.regular.interactive(), in: .circle)
-        .onHover { isHovering = $0 }
         .help(help)
     }
 }

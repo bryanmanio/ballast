@@ -22,3 +22,29 @@ struct PressableButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == PressableButtonStyle {
     static var pressable: PressableButtonStyle { PressableButtonStyle() }
 }
+
+/// Secondary at rest, primary under the pointer: enough to say "this is the
+/// one you're on" without the menu lighting up as the cursor crosses it.
+private struct HoverHighlight: ViewModifier {
+    var isOn: Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            // A disabled control that brightened would promise a click it
+            // won't take.
+            .foregroundStyle(isOn || (isHovering && isEnabled) ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+            .onHover { isHovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+    }
+}
+
+extension View {
+    /// For quiet controls drawn in `secondary`. Replaces their
+    /// `foregroundStyle`, so it has to be the only one setting it. A control
+    /// that `isOn` — a selected segment, a toggled button — stays lit.
+    func hoverHighlight(isOn: Bool = false) -> some View {
+        modifier(HoverHighlight(isOn: isOn))
+    }
+}
