@@ -92,3 +92,7 @@ defaults write com.mediumrare.ballast BallastUseFixtures -bool YES
 tag` and `gh release create` commands to run.
 
 The website is in [ballast-site](https://github.com/bryanmanio/ballast-site).
+
+## License
+
+Ballast is released under the [GNU General Public License v3.0](LICENSE).
