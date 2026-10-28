@@ -3,6 +3,8 @@
 A macOS menu bar app that lists the Docker containers running on a Synology
 NAS, shows whether each one is up, and opens it in your browser on click.
 
+![Ballast's menu listing Docker containers on a Synology NAS](docs/screenshot.png)
+
 Ballast connects over SSH using your existing key and `~/.ssh/config`, and runs
 a small script on the NAS that only reads from Docker. There's no daemon, no
 exposed Docker socket, and no credentials stored in the app.
