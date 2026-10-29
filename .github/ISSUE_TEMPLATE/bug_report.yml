@@ -1,0 +1,70 @@
+name: Bug report
+description: Something in Ballast isn't working the way it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Please search existing issues first in case it's already known. If this is a security problem, use [private reporting](https://github.com/bryanmanio/ballast/security/advisories/new) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the menu
+        2. Right-click a container
+        3. ...
+    validations:
+      required: false
+  - type: input
+    id: ballast-version
+    attributes:
+      label: Ballast version
+      description: Shown in Settings → About.
+      placeholder: "1.3 (5)"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+  - type: input
+    id: dsm-version
+    attributes:
+      label: DSM version and NAS model
+      placeholder: "DSM 7.2.2, DS920+"
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where is the problem?
+      options:
+        - Connecting to the NAS
+        - Setup window
+        - Container list or status
+        - Start, stop or restart
+        - Image update checks
+        - History or notifications
+        - Settings
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Container labels, logs or screenshots
+      description: If the problem is with one container, paste its `ballast.*` labels or the relevant part of its compose file. Remove hostnames, usernames and anything else you don't want public.
+      render: text
+    validations:
+      required: false

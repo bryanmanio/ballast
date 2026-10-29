@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something Ballast could do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: How you'd like it to work, if you have an idea.
+    validations:
+      required: false
+  - type: checkboxes
+    id: nas-access
+    attributes:
+      label: NAS access
+      description: Ballast only asks the NAS to read container state and to start, stop or restart containers. Features that need more access than that are unlikely to be added.
+      options:
+        - label: This would need Ballast to do something new on the NAS
+          required: false
