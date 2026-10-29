@@ -7,6 +7,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var settings: AppSettings
     let store: ContainerStore
+    let updater: AppUpdater
 
     @State private var pane: SettingsPane = .general
 
@@ -38,6 +39,13 @@ struct SettingsView: View {
             PaneIcon(symbol: pane.symbol, tint: pane.tint)
             Text(pane.title)
                 .font(.system(size: 13))
+            if pane == .about && updater.availableUpdate != nil {
+                Spacer(minLength: 4)
+                Circle()
+                    .fill(.blue)
+                    .frame(width: 7, height: 7)
+                    .help("A new version of Ballast is available")
+            }
         }
         .padding(.vertical, 1)
         .tag(pane)
@@ -52,7 +60,7 @@ struct SettingsView: View {
                 case .menu: MenuPane(settings: settings, store: store)
                 case .notifications: NotificationsPane(settings: settings, store: store)
                 case .history: HistoryPane(store: store)
-                case .about: AboutPane()
+                case .about: AboutPane(settings: settings, updater: updater)
                 }
             }
             .padding(20)

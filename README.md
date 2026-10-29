@@ -34,6 +34,7 @@ DSM updates sometimes reset `sshd_config`; if Ballast stops connecting after one
 
   Restarting a container won't update it, and neither will **Build** in Container Manager, because both reuse the image already on the NAS until you pull a new one. Container Manager also misses updates to a lot of images hosted outside Docker Hub (LinuxServer's `lscr.io`, for example) and will say "up to date" when they aren't. Ballast asks each image's own registry instead.
 - **History** (⌘Y) lists exits, crashes, restarts and updates. Crash notifications can be turned on in Settings.
+- **App updates:** Ballast checks GitHub once a day and tells you when a new version is out. Settings → About shows the version you're running and has **Check Now**.
 - **Shortcuts:** ⌥⌘B opens the menu from anywhere. Inside it, ⌘F filters, ⌘R refreshes and ⌘, opens Settings.
 - **Quit** by right-clicking the menu bar icon.
 

@@ -5,6 +5,7 @@ struct BallastApp: App {
     @Environment(\.openWindow) private var openWindow
     @State private var settings: AppSettings
     @State private var store: ContainerStore
+    @State private var updater: AppUpdater
     /// Owns the right-click menu on the status item. Held here so it lives as
     /// long as the app does.
     @State private var contextMenu = MenuBarContextMenu()
@@ -63,11 +64,15 @@ struct BallastApp: App {
             historyStore.append(FixtureContainerSource.sampleHistory())
         }
 
+        // One notifier for container exits and app updates alike, so there's
+        // one delegate on the notification centre.
+        let notifier = UserNotificationsExitNotifier()
+
         let store = ContainerStore(
             settings: settings,
             probe: useFixtures ? FixtureProbe() : ServiceProbe(),
             historyStore: historyStore,
-            notifier: UserNotificationsExitNotifier(),
+            notifier: notifier,
             registry: useFixtures ? FixtureImageRegistry() : RegistryClient(),
             requiresSSHConfiguration: !useFixtures,
             makeSource: makeSource
@@ -90,11 +95,16 @@ struct BallastApp: App {
 
         _settings = State(initialValue: settings)
         _store = State(initialValue: store)
+        _updater = State(initialValue: AppUpdater(
+            settings: settings,
+            checker: useFixtures ? FixtureAppUpdateChecker() : GitHubReleaseChecker(),
+            notifier: notifier
+        ))
     }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContentView(store: store, settings: settings)
+            MenuContentView(store: store, settings: settings, updater: updater)
         } label: {
             MenuBarLabel(status: store.overallStatus, problemCount: store.problemCount)
                 // Opening a window is something only SwiftUI can do, so the
@@ -111,7 +121,10 @@ struct BallastApp: App {
                 // with the window style those contents aren't created until
                 // the menu is first opened, which would leave the menu bar
                 // icon blank until clicked — the opposite of its purpose.
-                .task { store.startPolling() }
+                .task {
+                    store.startPolling()
+                    updater.startAutomaticChecks()
+                }
         }
         // The window style is what allows a scrollable, grouped list with
         // per-row controls; the default menu style can't host one.
@@ -121,7 +134,7 @@ struct BallastApp: App {
         // is too narrow for a source list, and this is the one surface both
         // the gear button and the right-click menu open.
         Window("Ballast Settings", id: "settings") {
-            SettingsView(settings: settings, store: store)
+            SettingsView(settings: settings, store: store, updater: updater)
         }
         .defaultSize(width: 720, height: 520)
         // The sidebar is the point of this window, so it's resizable down to
@@ -147,7 +160,7 @@ struct BallastApp: App {
         Window("Ballast — menu preview", id: "debug-preview") {
             // Sized like the popover — content height, not window height —
             // so layout bugs that only appear in the menu show up here too.
-            MenuContentView(store: store, settings: settings)
+            MenuContentView(store: store, settings: settings, updater: updater)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxHeight: .infinity, alignment: .top)
         }

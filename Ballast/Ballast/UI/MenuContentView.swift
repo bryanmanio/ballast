@@ -25,6 +25,7 @@ private enum Pane {
 struct MenuContentView: View {
     let store: ContainerStore
     let settings: AppSettings
+    let updater: AppUpdater
     /// The popover caps its list; the debug preview window doesn't need to.
     var maxListHeight: CGFloat = 460
 
@@ -86,6 +87,11 @@ struct MenuContentView: View {
         VStack(spacing: 0) {
             header
             Divider()
+
+            if updater.showsBanner, let update = updater.availableUpdate {
+                AppUpdateBanner(release: update, dismiss: updater.dismissBanner)
+                Divider()
+            }
 
             if let actionError = store.actionError {
                 NoticeBanner(messages: [actionError], isProblem: true)
@@ -712,6 +718,41 @@ private struct ErrorBanner: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.orange.opacity(0.1))
+    }
+}
+
+/// A newer Ballast is out. Above everything else in the list, but closable,
+/// since it's news rather than a problem.
+private struct AppUpdateBanner: View {
+    let release: AppRelease
+    let dismiss: () -> Void
+
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.blue)
+            Text("Ballast \(release.version.description) is available")
+                .font(.system(size: 11, weight: .medium))
+            Spacer(minLength: 0)
+            Button("Download") { openURL(release.pageURL) }
+                .controlSize(.small)
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16, height: 16)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .help("Hide until the next version")
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.blue.opacity(0.08))
     }
 }
 

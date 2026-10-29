@@ -8,6 +8,7 @@ private final class StubNotifier: ExitNotifying, @unchecked Sendable {
     func authorizationStatus() async -> NotificationAuthorization { .authorized }
     func requestAuthorization() async -> Bool { true }
     func post(_ events: [DowntimeEvent]) async { posted += events }
+    func post(appUpdate release: AppRelease) async {}
 }
 
 private let now = Date(timeIntervalSince1970: 1_800_000_000)
