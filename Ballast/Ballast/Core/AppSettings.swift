@@ -59,6 +59,14 @@ final class AppSettings {
     /// Set when the user finishes — or skips — the setup window, so it is
     /// offered once rather than at every launch.
     var hasCompletedOnboarding: Bool { didSet { write(hasCompletedOnboarding, .hasCompletedOnboarding) } }
+    /// Whether Ballast asks GitHub once a day if a newer version is out.
+    /// Settings' Check Now button works either way.
+    var appUpdateChecksEnabled: Bool { didSet { write(appUpdateChecksEnabled, .appUpdateChecksEnabled) } }
+    /// The newest version the user has already been told about, so each
+    /// release notifies once rather than once a day.
+    var lastNotifiedAppVersion: String? { didSet { write(lastNotifiedAppVersion, .lastNotifiedAppVersion) } }
+    /// The version whose banner was closed in the menu. A newer one shows again.
+    var dismissedAppVersion: String? { didSet { write(dismissedAppVersion, .dismissedAppVersion) } }
 
     private let defaults: UserDefaults
 
@@ -90,6 +98,9 @@ final class AppSettings {
         mutedContainers = Set(defaults.stringArray(forKey: Key.mutedContainers.rawValue) ?? [])
         imageUpdateChecksEnabled = defaults.object(forKey: Key.imageUpdateChecksEnabled.rawValue) as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding.rawValue)
+        appUpdateChecksEnabled = defaults.object(forKey: Key.appUpdateChecksEnabled.rawValue) as? Bool ?? true
+        lastNotifiedAppVersion = defaults.string(forKey: Key.lastNotifiedAppVersion.rawValue)
+        dismissedAppVersion = defaults.string(forKey: Key.dismissedAppVersion.rawValue)
     }
 
     /// ⌥⌘B, free of anything macOS claims, so the shortcut works the first
@@ -116,10 +127,15 @@ final class AppSettings {
         case notifyOnUnexpectedExit, mutedContainers
         case imageUpdateChecksEnabled
         case hasCompletedOnboarding
+        case appUpdateChecksEnabled, lastNotifiedAppVersion, dismissedAppVersion
     }
 
     private func write(_ value: Any, _ key: Key) {
         defaults.set(value, forKey: key.rawValue)
+    }
+
+    private func write(_ value: String?, _ key: Key) {
+        if let value { defaults.set(value, forKey: key.rawValue) } else { defaults.removeObject(forKey: key.rawValue) }
     }
 
 }

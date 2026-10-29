@@ -454,6 +454,11 @@ struct HistoryPane: View {
 // MARK: - About
 
 struct AboutPane: View {
+    @Bindable var settings: AppSettings
+    let updater: AppUpdater
+
+    @Environment(\.openURL) private var openURL
+
     private static let repository = URL(string: "https://github.com/bryanmanio/ballast")!
     private static let newIssue = URL(string: "https://github.com/bryanmanio/ballast/issues/new")!
 
@@ -463,7 +468,7 @@ struct AboutPane: View {
             VStack(spacing: 3) {
                 Text("Ballast")
                     .font(.system(size: 20, weight: .semibold))
-                Text(Self.versionString)
+                Text("Version \(updater.currentVersionLabel)")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
@@ -475,6 +480,34 @@ struct AboutPane: View {
         .frame(maxWidth: .infinity)
         .padding(.top, 12)
         .padding(.bottom, 6)
+
+        SettingsGroup("Updates") {
+            SettingsRow("Version \(updater.currentVersionLabel)", subtitle: updateSummary) {
+                if updater.isChecking {
+                    ProgressView().controlSize(.small)
+                } else if let update = updater.availableUpdate {
+                    Button("Download…") { openURL(update.pageURL) }
+                        .controlSize(.small)
+                        .help("Opens the \(update.name) release on GitHub")
+                } else {
+                    Button("Check Now") { Task { await updater.checkNow() } }
+                        .controlSize(.small)
+                }
+            }
+            if let error = updater.error {
+                RowNote(error.hint, symbol: "exclamationmark.triangle.fill", tint: .orange)
+            }
+            RowDivider()
+            SettingsRow(
+                "Check for updates automatically",
+                help: "Asks GitHub once a day. Nothing is downloaded or installed."
+            ) {
+                RowToggle(isOn: $settings.appUpdateChecksEnabled)
+                    .onChange(of: settings.appUpdateChecksEnabled) { _, enabled in
+                        if enabled { Task { await updater.checkIfDue() } }
+                    }
+            }
+        }
 
         SettingsCard {
             LinkRow(
@@ -502,11 +535,14 @@ struct AboutPane: View {
             .padding(.top, 2)
     }
 
-    private static var versionString: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = info?["CFBundleVersion"] as? String
-        return build.map { "Version \(short) (\($0))" } ?? "Version \(short)"
+    private var updateSummary: String {
+        if let update = updater.availableUpdate {
+            return "Version \(update.version) is available"
+        }
+        guard let checked = updater.lastChecked else {
+            return updater.isChecking ? "Checking…" : "Not checked yet"
+        }
+        return "Up to date · checked \(checked.formatted(.relative(presentation: .named)))"
     }
 }
 

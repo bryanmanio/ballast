@@ -11,6 +11,8 @@ protocol ExitNotifying: Sendable {
     /// Posts what it is given; deciding what deserves a notification is the
     /// caller's job.
     func post(_ events: [DowntimeEvent]) async
+    /// Says a newer Ballast is out. The caller decides it's worth saying.
+    func post(appUpdate release: AppRelease) async
 }
 
 /// For anything that isn't the real app. `UNUserNotificationCenter.current()`
@@ -19,6 +21,7 @@ struct DisabledExitNotifier: ExitNotifying {
     func authorizationStatus() async -> NotificationAuthorization { .denied }
     func requestAuthorization() async -> Bool { false }
     func post(_ events: [DowntimeEvent]) async {}
+    func post(appUpdate release: AppRelease) async {}
 }
 
 /// The only file that touches UserNotifications, so the rest can be tested
@@ -65,6 +68,18 @@ final class UserNotificationsExitNotifier: NSObject, ExitNotifying, UNUserNotifi
         for event in events {
             await add(request(for: event))
         }
+    }
+
+    func post(appUpdate release: AppRelease) async {
+        let content = UNMutableNotificationContent()
+        content.title = "Ballast \(release.version) is available"
+        content.body = "Open the Ballast menu to download it."
+        // One per version, so a repeat check can't stack duplicates.
+        await add(UNNotificationRequest(
+            identifier: "app-update-\(release.version)",
+            content: content,
+            trigger: nil
+        ))
     }
 
     private func request(for event: DowntimeEvent) -> UNNotificationRequest {

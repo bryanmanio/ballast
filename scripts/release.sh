@@ -202,6 +202,17 @@ codesign -d -vvv "$APP" 2>&1 | grep -q 'flags=.*runtime' \
     || die "the app is not hardened-runtime signed (ENABLE_HARDENED_RUNTIME)"
 echo "  hardened runtime on"
 
+# Settings live in the defaults domain named after the bundle identifier,
+# and history in ~/Library/Application Support/Ballast. A new identifier, or
+# turning the sandbox on (which moves both into a container), would make an
+# update look like a fresh install with every setting gone.
+BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")
+[ "$BUNDLE_ID" = "com.mediumrare.ballast" ] \
+    || die "bundle identifier is $BUNDLE_ID; changing it would reset every existing user's settings"
+codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -q 'com.apple.security.app-sandbox' \
+    && die "the app is sandboxed; existing users' settings and history wouldn't carry over"
+echo "  bundle id $BUNDLE_ID, not sandboxed (settings carry over)"
+
 # Release archives build ARCHS_STANDARD, but an override anywhere in the
 # project would quietly drop Intel Macs, which macOS 26 still supports.
 ARCHS=$(lipo -archs "$APP/Contents/MacOS/$APP_NAME")
