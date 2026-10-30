@@ -1,5 +1,7 @@
 # Ballast
 
+[Visit the site](https://ballast.ing/)
+
 <img width="1375" height="916" alt="5c2d0b15-dea4-47fe-9de7-c2e917440db7" src="https://github.com/user-attachments/assets/a5ab41c9-fc47-4453-9ae6-72454c13fade" />
 
 Ballast is a macOS menu bar app that lists the Docker containers on your Synology NAS, shows whether each one is up, and opens any of them in your browser when you click.
