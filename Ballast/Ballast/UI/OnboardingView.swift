@@ -498,7 +498,7 @@ private struct TestPage: View {
             return false
         case .success:
             // The list has to exist before it can be revealed.
-            await store.refresh()
+            await store.refreshNow()
             // Getting this far is the whole point of the window, so don't
             // make pressing Done the thing that records setup as finished:
             // closing from here shouldn't bring it back.

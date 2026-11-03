@@ -258,7 +258,7 @@ struct ConnectionPane: View {
             switch await store.testConnection() {
             case .success(let check):
                 test = .success(check)
-                await store.refresh()
+                await store.refreshNow()
             case .failure(let error):
                 test = .failure(error)
             }
