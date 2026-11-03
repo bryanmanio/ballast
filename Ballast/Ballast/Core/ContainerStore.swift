@@ -73,6 +73,8 @@ final class ContainerStore {
     /// False when driven by fixtures, which need no SSH destination.
     private let requiresSSHConfiguration: Bool
     private var pollTask: Task<Void, Never>?
+    /// The refresh currently running, so an explicit one can wait it out.
+    private var inFlightRefresh: Task<Void, Never>?
     /// The last successful poll, reduced to what transitions are detected
     /// from. Deliberately untouched by a failed poll, so an outage can never
     /// look like containers exiting.
@@ -452,6 +454,9 @@ final class ContainerStore {
 
     // MARK: - Refresh
 
+    /// A refresh nobody asked for by hand — opening the menu, the poll
+    /// timer. If one is already running it's left to finish alone, since
+    /// whatever it returns is as current as a second fetch would be.
     func refresh() async {
         guard !isRefreshing else { return }
         guard settings.isConfigured || !requiresSSHConfiguration else {
@@ -461,8 +466,25 @@ final class ContainerStore {
         }
 
         isRefreshing = true
-        defer { isRefreshing = false }
+        let task = Task { await performRefresh() }
+        inFlightRefresh = task
+        await task.value
+        inFlightRefresh = nil
+        isRefreshing = false
+    }
 
+    /// A refresh the user asked for, typically to see whether something they
+    /// just fixed on the NAS took. One already in flight may have read the
+    /// NAS before the fix, so this waits it out and then fetches again rather
+    /// than settling for its answer.
+    func refreshNow() async {
+        while let running = inFlightRefresh {
+            await running.value
+        }
+        await refresh()
+    }
+
+    private func performRefresh() async {
         let source = makeSource(settings)
         let resolver = HostResolver(
             lanHost: settings.effectiveLANHost,

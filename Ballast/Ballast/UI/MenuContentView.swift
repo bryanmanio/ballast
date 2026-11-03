@@ -189,7 +189,7 @@ struct MenuContentView: View {
                         shortcut: KeyboardShortcut("r"),
                         isBusy: store.isRefreshing
                     ) {
-                        await store.refresh()
+                        await store.refreshNow()
                         // A checkmark after a failed refresh would be a lie;
                         // the error banner already says what went wrong.
                         return store.lastError == nil
@@ -526,7 +526,8 @@ private struct ScopeControl: View {
 struct RefreshButton: View {
     let help: String
     var shortcut: KeyboardShortcut?
-    /// Work the button didn't start, which dims it rather than spinning it.
+    /// Work the button didn't start. It dims the button slightly but
+    /// doesn't disable it: a click waits that work out and then runs its own.
     var isBusy = false
     /// The work itself; `true` if it succeeded, which is what earns the
     /// checkmark.
@@ -556,11 +557,12 @@ struct RefreshButton: View {
         HeaderButton(glyph: glyph, help: help, shortcut: shortcut) {
             Task { await refresh() }
         }
-        .disabled(isBusy || phase != .idle)
-        // A refresh nobody clicked for (opening the menu, the timer) dims the
-        // button as before. One that was asked for spins at full strength:
-        // dimming it would hide the very feedback the spin is there to give.
-        .opacity(isBusy && phase == .idle ? 0.4 : 1)
+        // Never disabled by work it didn't start: a refresh nobody clicked
+        // for (opening the menu, the timer) can have read the NAS before the
+        // change the user now wants to see, so a click still has to count.
+        // It dims the button a little to say something is already under way.
+        .disabled(phase != .idle)
+        .opacity(isBusy && phase == .idle ? 0.6 : 1)
         .task(id: phase) {
             guard phase == .done else { return }
             try? await Task.sleep(for: Self.checkmarkHold)

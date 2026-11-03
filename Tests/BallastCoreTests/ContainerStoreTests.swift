@@ -257,6 +257,70 @@ struct ContainerStoreTests {
 
         #expect(source.fetchCount == 1)
     }
+
+    @Test("an explicit refresh during a background one fetches again afterwards")
+    func explicitRefreshWaitsThenFetches() async {
+        let defaults = UserDefaults(suiteName: "ballast-tests-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.sshDestination = "test@nas"
+        let source = GatedSource(health: .unhealthy)
+        let store = ContainerStore(settings: settings, probe: StubProbe()) { _ in source }
+
+        // A background refresh reads the NAS, then stalls before answering.
+        let background = Task { await store.refresh() }
+        await source.firstFetchStarted()
+        #expect(store.isRefreshing)
+
+        // The fix lands, and the user asks for a refresh to see it.
+        source.health = .healthy
+        let explicit = Task { await store.refreshNow() }
+        await Task.yield()
+        source.release()
+        await background.value
+        await explicit.value
+
+        #expect(source.fetchCount == 2)
+        #expect(store.containers.first?.health == .healthy)
+    }
+}
+
+/// Holds its first fetch until released, answering with the health it had
+/// when the fetch began — a read taken before the user's fix.
+@MainActor
+final class GatedSource: ContainerSource, @unchecked Sendable {
+    var health: HealthState
+    private(set) var fetchCount = 0
+    private var gate: CheckedContinuation<Void, Never>?
+    private var started: CheckedContinuation<Void, Never>?
+    private var hasStarted = false
+
+    init(health: HealthState) { self.health = health }
+
+    func firstFetchStarted() async {
+        if hasStarted { return }
+        await withCheckedContinuation { started = $0 }
+    }
+
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
+
+    func fetch() async throws -> AgentListOutput {
+        fetchCount += 1
+        let snapshot = health
+        if fetchCount == 1 {
+            hasStarted = true
+            started?.resume()
+            started = nil
+            await withCheckedContinuation { gate = $0 }
+        }
+        return AgentListOutput(protocolVersion: 1, containers: [makeContainer("immich", health: snapshot)])
+    }
+
+    func check() async throws -> AgentCheck { throw BallastError.notConfigured }
+    func images() async throws -> [String: ContainerImage] { [:] }
+    func perform(_ action: ContainerAction, on container: String) async throws {}
 }
 
 @MainActor
