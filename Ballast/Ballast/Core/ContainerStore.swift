@@ -466,11 +466,18 @@ final class ContainerStore {
         }
 
         isRefreshing = true
-        let task = Task { await performRefresh() }
+        // Cleared inside the task, not after awaiting it: once the task is
+        // seen to finish, the store must already be idle. Otherwise
+        // refreshNow, resumed ahead of this function, would find the finished
+        // task still recorded and spin on it, never yielding the main actor
+        // this function needs to clear it.
+        let task = Task {
+            await performRefresh()
+            inFlightRefresh = nil
+            isRefreshing = false
+        }
         inFlightRefresh = task
         await task.value
-        inFlightRefresh = nil
-        isRefreshing = false
     }
 
     /// A refresh the user asked for, typically to see whether something they
