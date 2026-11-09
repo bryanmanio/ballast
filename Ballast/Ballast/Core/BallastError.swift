@@ -37,6 +37,7 @@ enum BallastError: Error, Equatable, Sendable {
     static func classify(exitCode: Int32, stderr: String, timedOut: Bool) -> BallastError {
         if timedOut { return .timedOut }
 
+        let stderr = withoutLoginNoise(stderr)
         let lower = stderr.lowercased()
 
         // The agent reached the point of running and told us what was wrong.
@@ -45,6 +46,12 @@ enum BallastError: Error, Equatable, Sendable {
         if lower.contains("ballast: docker-unavailable") || lower.contains("ballast: inspect-failed") {
             return .dockerUnavailable
         }
+        // Any other sentinel, such as `restart-failed: <docker's error>`:
+        // the agent is clearly installed, so pass its reason through rather
+        // than letting Docker's wording match a check further down.
+        if let reason = agentReason(stderr) {
+            return .agentFailed(exitCode: exitCode, detail: reason)
+        }
 
         // sudo refused before the agent ran.
         if lower.contains("password is required") || lower.contains("no tty present")
@@ -52,9 +59,11 @@ enum BallastError: Error, Equatable, Sendable {
             return .sudoDenied
         }
 
-        // The agent isn't installed, or isn't where we think it is.
-        if lower.contains("command not found") || lower.contains("no such file or directory")
-            || exitCode == 127 {
+        // The agent isn't installed, or isn't where we think it is. Only when
+        // the complaint names the agent: other "No such file" errors are not
+        // about it.
+        if exitCode == 127 || (lower.contains("ballast-agent")
+            && (lower.contains("command not found") || lower.contains("no such file or directory"))) {
             return .agentMissing
         }
 
@@ -72,6 +81,25 @@ enum BallastError: Error, Equatable, Sendable {
 
         if exitCode == 255 { return .sshFailed(exitCode: exitCode, detail: firstLine(stderr)) }
         return .agentFailed(exitCode: exitCode, detail: firstLine(stderr))
+    }
+
+    /// Drops lines sshd prints on every login, whatever the command did. On
+    /// DSM with the user home service off, every command reports that it
+    /// could not chdir to the user's home, and that "No such file or
+    /// directory" would otherwise read as a missing agent.
+    private static func withoutLoginNoise(_ text: String) -> String {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.lowercased().hasPrefix("could not chdir to home directory") }
+            .joined(separator: "\n")
+    }
+
+    /// The reason from an agent sentinel line (`ballast: <reason>`), if any.
+    private static func agentReason(_ text: String) -> String? {
+        let prefix = "ballast: "
+        return text.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { $0.hasPrefix(prefix) }
+            .map { String($0.dropFirst(prefix.count)) }
     }
 
     private static func firstLine(_ text: String) -> String {

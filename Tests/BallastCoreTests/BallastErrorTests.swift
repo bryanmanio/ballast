@@ -34,6 +34,33 @@ struct BallastErrorTests {
         #expect(classify("", exitCode: 127) == .agentMissing)
     }
 
+    private let noHome = "Could not chdir to home directory /var/services/homes/porthole: No such file or directory"
+
+    @Test("DSM's missing-home warning isn't mistaken for a missing agent")
+    func missingHomeIsNoise() {
+        #expect(classify(noHome, exitCode: 1) == .agentFailed(exitCode: 1, detail: ""))
+        if case .hostUnreachable = classify(
+            noHome + "\nssh: connect to host nas port 22: Connection refused", exitCode: 255
+        ) {} else {
+            Issue.record("the real SSH error should still be found under the warning")
+        }
+        #expect(classify(noHome + "\nsudo: a password is required") == .sudoDenied)
+        #expect(classify(noHome, exitCode: 127) == .agentMissing)
+    }
+
+    @Test("a failed lifecycle action reports Docker's reason, not a missing agent")
+    func lifecycleFailure() {
+        let stderr = noHome + "\nballast: restart-failed: Error response from daemon: "
+            + "error while creating mount source path '/volume1/docker/x': no such file or directory"
+        #expect(classify(stderr, exitCode: 7) == .agentFailed(
+            exitCode: 7,
+            detail: "restart-failed: Error response from daemon: "
+                + "error while creating mount source path '/volume1/docker/x': no such file or directory"
+        ))
+        #expect(classify("ballast: no-such-container", exitCode: 6)
+            == .agentFailed(exitCode: 6, detail: "no-such-container"))
+    }
+
     @Test("an agent that doesn't know a subcommand asks to be redeployed")
     func agentOutdated() {
         #expect(classify(
