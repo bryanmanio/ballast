@@ -589,21 +589,27 @@ struct RefreshButton: View {
     private func refresh() async {
         phase = .spinning
         isAwaitingRefresh = true
-        if !reduceMotion { spinOneTurn() }
+        let spin = reduceMotion ? nil : Task { await spin() }
         succeeded = await action()
         isAwaitingRefresh = false
-        // Without the spin there's no turn to wait out.
-        if reduceMotion { settle() }
+        await spin?.value
+        settle()
     }
 
     /// One turn at a time, deciding at the end of each whether to go round
     /// again — which is what lets the spin stop on a full turn.
-    private func spinOneTurn() {
-        withAnimation(.linear(duration: Self.turnDuration)) {
-            turns += 1
-        } completion: {
-            if isAwaitingRefresh { spinOneTurn() } else { settle() }
-        }
+    ///
+    /// Paced by a sleep, not by the animation's completion handler. Once
+    /// the menu closes, the button is offscreen and SwiftUI completes its
+    /// animations on the spot. A completion that started the next turn then
+    /// looped without ever returning to the run loop, so the refresh it was
+    /// waiting on could never resume on the main actor to end it, and the
+    /// app hung.
+    private func spin() async {
+        repeat {
+            withAnimation(.linear(duration: Self.turnDuration)) { turns += 1 }
+            try? await Task.sleep(for: .seconds(Self.turnDuration))
+        } while isAwaitingRefresh
     }
 
     private func settle() {
